@@ -2,10 +2,7 @@ import json
 import fitz  # pymupdf
 from google import genai
 from google.genai import types
-import os
 
-api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-client = genai.Client(api_key=api_key)
 MODEL_ID = "gemini-2.5-flash"
 
 PARSE_PROMPT = """You are a resume parser. Extract structured profile data from the following resume content.
@@ -57,8 +54,10 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     return text
 
 
-async def parse_resume(content: str) -> dict:
+async def parse_resume(content: str, api_key: str) -> dict:
     """Use Gemini to parse resume text/LaTeX into structured profile data."""
+    client = genai.Client(api_key=api_key)
+    
     user_prompt = f"""
 ## RESUME CONTENT:
 {content}

@@ -36,9 +36,13 @@ export default function ProfileForm({ initial, onSave }) {
       const formData = new FormData()
       formData.append('file', file)
       const token = localStorage.getItem('token')
+      const geminiKey = localStorage.getItem('geminiApiKey')
+      const headers = { 'Authorization': `Bearer ${token}` }
+      if (geminiKey) headers['X-Gemini-Key'] = geminiKey
+      
       const res = await fetch(`${API}/api/profile/import-pdf`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers,
         body: formData,
       })
       if (!res.ok) {
@@ -61,12 +65,16 @@ export default function ProfileForm({ initial, onSave }) {
     setImportError('')
     try {
       const token = localStorage.getItem('token')
+      const geminiKey = localStorage.getItem('geminiApiKey')
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      }
+      if (geminiKey) headers['X-Gemini-Key'] = geminiKey
+
       const res = await fetch(`${API}/api/profile/import-latex`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({ latex: latexCode }),
       })
       if (!res.ok) {

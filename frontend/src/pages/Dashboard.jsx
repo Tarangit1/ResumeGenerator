@@ -58,6 +58,31 @@ export default function Dashboard() {
         </button>
       </div>
 
+      <div className="card" style={{ marginBottom: '32px', borderLeft: '4px solid var(--accent)', background: 'rgba(255,107,107,0.05)' }}>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          🤖 AI Settings <span style={{ fontSize: '0.75rem', padding: '2px 6px', background: 'var(--accent)', color: 'white', borderRadius: '12px' }}>Required</span>
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '16px' }}>
+          To generate and parse resumes using the AI engine, please provide your own free Gemini API key. It is stored securely only in your browser.
+        </p>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input
+            className="form-input"
+            type="password"
+            placeholder="paste your gemini api key here (AIza...)"
+            defaultValue={localStorage.getItem('geminiApiKey') || ''}
+            onChange={(e) => localStorage.setItem('geminiApiKey', e.target.value.trim())}
+            style={{ flex: 1, fontFamily: 'monospace' }}
+          />
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => alert('API Key saved securely to your browser!')}
+          >
+            Save Key
+          </button>
+        </div>
+      </div>
+
       {history.length > 0 && (
         <>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '16px' }}>Recent History</h2>

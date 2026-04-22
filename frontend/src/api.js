@@ -2,8 +2,10 @@ const API = import.meta.env.VITE_API_URL || ''
 
 async function apiFetch(path, options = {}) {
   const token = localStorage.getItem('token')
+  const geminiKey = localStorage.getItem('geminiApiKey')
   const headers = { 'Content-Type': 'application/json', ...options.headers }
   if (token) headers['Authorization'] = `Bearer ${token}`
+  if (geminiKey) headers['X-Gemini-Key'] = geminiKey
 
   const res = await fetch(`${API}${path}`, { ...options, headers })
 

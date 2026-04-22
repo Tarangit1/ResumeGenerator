@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -209,15 +209,18 @@ def update_profile(
 async def import_pdf(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
+    x_gemini_key: str = Header(None)
 ):
     """Upload a PDF resume, extract profile data via Gemini."""
+    if not x_gemini_key:
+        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header")
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files accepted")
     pdf_bytes = await file.read()
     text = extract_text_from_pdf(pdf_bytes)
     if not text.strip():
         raise HTTPException(status_code=400, detail="Could not extract text from PDF")
-    profile_data = await parse_resume(text)
+    profile_data = await parse_resume(text, x_gemini_key)
     return profile_data
 
 
@@ -229,11 +232,14 @@ class LatexImportRequest(BaseModel):
 async def import_latex(
     req: LatexImportRequest,
     user: User = Depends(get_current_user),
+    x_gemini_key: str = Header(None)
 ):
     """Parse LaTeX resume code, extract profile data via Gemini."""
+    if not x_gemini_key:
+        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header")
     if not req.latex.strip():
         raise HTTPException(status_code=400, detail="Empty LaTeX content")
-    profile_data = await parse_resume(req.latex)
+    profile_data = await parse_resume(req.latex, x_gemini_key)
     return profile_data
 
 
@@ -244,7 +250,11 @@ async def generate(
     req: GenerateRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    x_gemini_key: str = Header(None)
 ):
+    if not x_gemini_key:
+        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header")
+
     profile = db.query(Profile).filter(Profile.user_id == user.id).first()
     if not profile:
         raise HTTPException(status_code=400, detail="Fill your profile first")
@@ -261,7 +271,7 @@ async def generate(
     }
 
     # Call Gemini
-    resume = await tailor_resume(profile_data, req.jd)
+    resume = await tailor_resume(profile_data, req.jd, x_gemini_key)
 
     # Score ATS
     ats = score_resume(resume, req.jd)
