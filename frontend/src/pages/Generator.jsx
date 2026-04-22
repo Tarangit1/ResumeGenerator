@@ -78,6 +78,7 @@ export default function Generator() {
           email: profile?.email || '',
           phone: profile?.phone || '',
           linkedin: profile?.linkedin || '',
+          hide_keywords: result?.ats?.missing || [],
         }),
       })
       downloadBlob(blob, 'resume.pdf')
@@ -97,6 +98,7 @@ export default function Generator() {
           email: profile?.email || '',
           phone: profile?.phone || '',
           linkedin: profile?.linkedin || '',
+          hide_keywords: result?.ats?.missing || [],
         }),
       })
       downloadBlob(blob, 'resume.tex')
