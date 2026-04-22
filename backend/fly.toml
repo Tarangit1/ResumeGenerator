@@ -1,8 +1,8 @@
 # Fly.io config for Resume Generator backend
 # Deploy: flyctl launch --no-deploy, then flyctl deploy
 
-app = "resume-generator-api-696904"
-primary_region = "bom"
+app = "resume-generator-api"
+primary_region = "bom"  # Mumbai — closest to India
 
 [build]
   dockerfile = "Dockerfile"
