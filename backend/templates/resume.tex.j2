@@ -1,0 +1,105 @@
+\documentclass[a4paper,11pt]{article}
+
+% Page Setup
+\newcommand{\projectsep}{
+  \vspace{4pt} % Adjust this number to control the top gap
+  \centerline{\color{gray!20}\rule{0.6\linewidth}{0.1pt}}
+  \vspace{2pt} % Adjust this number to control the bottom gap
+}
+\usepackage[left=1.2cm,right=1.2cm,top=1.2cm,bottom=1.2cm]{geometry}
+\usepackage{parskip}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fontawesome5}
+
+% Define custom colors for a modern look
+\definecolor{darkblue}{RGB}{0, 0, 100}
+
+% Section formatting
+\titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
+\titlespacing{\section}{0pt}{8pt}{6pt}
+
+% Custom list settings for projects and experience
+\setlist[itemize]{leftmargin=15pt, noitemsep, topsep=0pt, partopsep=0pt, parsep=2pt}
+
+\begin{document}
+\pagestyle{empty}
+
+%---------------- HEADER ----------------%
+\begin{center}
+    {\Huge \textbf{ {{- name -}} }} \\ \vspace{4pt}
+    {\small
+    {% set header_items = [] %}
+    {% if email %}{% set _ = header_items.append('\\href{mailto:' ~ email ~ '}{\\faEnvelope\\ ' ~ email ~ '}') %}{% endif %}
+    {% if linkedin %}{% set _ = header_items.append('\\href{' ~ linkedin ~ '}{\\faLinkedin\\ ' ~ linkedin | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
+    {% if phone %}{% set _ = header_items.append('\\href{tel:' ~ phone ~ '}{\\faMobile\\ ' ~ phone ~ '}') %}{% endif %}
+    {{ header_items | join(' \\ $|$ \\ ') }}
+    }
+\end{center}
+
+%---------------- SUMMARY ----------------%
+{% if summary %}
+\section{Professional Summary}
+{{ summary }}
+{% endif %}
+
+%---------------- TECHNICAL SKILLS ----------------%
+{% if skills %}
+\section{Technical Skills}
+\begin{tabular}{@{}l l}
+{% if skills is mapping %}
+{% for category, skill_list in skills.items() %}
+{% if skill_list %}
+    \textbf{ {{- category | replace('_', ' ') | title -}} :} & {{ skill_list | join(', ') }}\\
+{% endif %}
+{% endfor %}
+{% else %}
+    \textbf{Skills:} & {{ skills | join(', ') }}\\
+{% endif %}
+\end{tabular}
+{% endif %}
+
+%---------------- EXPERIENCE ----------------%
+{% if experience %}
+\section{Experience}
+{% for exp in experience %}
+\textbf{ {{- exp.title -}} } \hfill {{ exp.company }} \\
+\textit{ {{- exp.start -}} -- {{ exp.end }} }
+\begin{itemize}
+{% for bullet in exp.bullets %}
+    \item {{ bullet }}
+{% endfor %}
+\end{itemize}
+{% if not loop.last %}\projectsep{% endif %}
+{% endfor %}
+{% endif %}
+
+%---------------- PROJECTS ----------------%
+{% if projects %}
+\section{Projects}
+\vspace{8pt}
+{% for proj in projects %}
+\textbf{ {{- proj.name -}} } \\
+\textit{Tech Stack: {{ proj.tech | join(', ') }}}
+\begin{itemize}
+{% for bullet in proj.bullets %}
+    \item {{ bullet }}
+{% endfor %}
+\end{itemize}
+{% if not loop.last %}\projectsep{% endif %}
+{% endfor %}
+{% endif %}
+
+%---------------- EDUCATION ----------------%
+{% if education %}
+\section{Education}
+{% for edu in education %}
+\textbf{ {{- edu.school -}} } \hfill {{ edu.year }} \\
+\textit{ {{- edu.degree -}} } \\
+{% endfor %}
+{% endif %}
+
+\end{document}
