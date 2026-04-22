@@ -29,7 +29,8 @@ Take each project and experience bullet and rewrite it impactfully:
 - SELECT ONLY the top 1 to 4 most highly relevant projects that best match the JD requirements. Order them by relevance to the JD.
 
 ## 4. OUTPUT FORMAT
-Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
+- Return ONLY valid JSON (no markdown, no code fences) with this exact structure.
+- CRITICAL: Use PLAIN TEXT ONLY inside the JSON strings. DO NOT include any LaTeX commands (like \textbf), HTML tags, or backslashes.
 {
   "summary": "2-3 sentence professional summary tailored to the JD",
   "experience": [
