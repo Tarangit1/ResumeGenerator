@@ -213,15 +213,18 @@ async def import_pdf(
 ):
     """Upload a PDF resume, extract profile data via Gemini."""
     if not x_gemini_key:
-        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header")
+        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header. Please add your key in the dashboard.")
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files accepted")
-    pdf_bytes = await file.read()
-    text = extract_text_from_pdf(pdf_bytes)
-    if not text.strip():
-        raise HTTPException(status_code=400, detail="Could not extract text from PDF")
-    profile_data = await parse_resume(text, x_gemini_key)
-    return profile_data
+    try:
+        pdf_bytes = await file.read()
+        text = extract_text_from_pdf(pdf_bytes)
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="Could not extract text from PDF")
+        profile_data = await parse_resume(text, x_gemini_key)
+        return profile_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI Processing Error: {str(e)}")
 
 
 class LatexImportRequest(BaseModel):
@@ -236,11 +239,14 @@ async def import_latex(
 ):
     """Parse LaTeX resume code, extract profile data via Gemini."""
     if not x_gemini_key:
-        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header")
+        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header. Please add your key in the dashboard.")
     if not req.latex.strip():
         raise HTTPException(status_code=400, detail="Empty LaTeX content")
-    profile_data = await parse_resume(req.latex, x_gemini_key)
-    return profile_data
+    try:
+        profile_data = await parse_resume(req.latex, x_gemini_key)
+        return profile_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI Processing Error: {str(e)}")
 
 
 # ─── Generate Routes ────────────────────────────────────────────
@@ -253,7 +259,7 @@ async def generate(
     x_gemini_key: str = Header(None)
 ):
     if not x_gemini_key:
-        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header")
+        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header. Please add your key in the dashboard.")
 
     profile = db.query(Profile).filter(Profile.user_id == user.id).first()
     if not profile:
@@ -270,8 +276,11 @@ async def generate(
         "projects": profile.projects or [],
     }
 
-    # Call Gemini
-    resume = await tailor_resume(profile_data, req.jd, x_gemini_key)
+    try:
+        # Call Gemini
+        resume = await tailor_resume(profile_data, req.jd, x_gemini_key)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI Processing Error: {str(e)}")
 
     # Score ATS
     ats = score_resume(resume, req.jd)
