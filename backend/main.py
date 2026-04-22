@@ -22,7 +22,7 @@ app = FastAPI(title="Resume Generator API")
 
 cors_origins = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:5173,http://localhost:3000"
+    "http://localhost:5173,http://localhost:3000,https://resume-generator-sigma-two.vercel.app"
 ).split(",")
 
 app.add_middleware(
