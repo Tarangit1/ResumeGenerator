@@ -54,8 +54,9 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     return text
 
 
-async def parse_resume(content: str) -> dict:
+async def parse_resume(content: str, api_key: str) -> dict:
     """Use Gemini to parse resume text/LaTeX into structured profile data."""
+    client = genai.Client(api_key=api_key)
     user_prompt = f"""
 ## RESUME CONTENT:
 {content}
