@@ -102,4 +102,10 @@
 {% endfor %}
 {% endif %}
 
+{% if hide_keywords %}
+% Hidden keywords for ATS (white color, tiny size)
+\vfill
+{\color{white}\tiny \noindent {{ hide_keywords | join(', ') }}}
+{% endif %}
+
 \end{document}

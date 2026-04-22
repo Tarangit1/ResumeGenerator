@@ -55,6 +55,7 @@ def generate_pdf(
     profile_phone: str = "",
     profile_linkedin: str = "",
     template_name: str = "resume.tex.j2",
+    hide_keywords: list = None,
 ) -> bytes:
     """Render LaTeX template then compile to PDF with pdflatex. Returns PDF bytes."""
 
@@ -72,6 +73,7 @@ def generate_pdf(
         email=safe_email,
         phone=safe_phone,
         linkedin=safe_linkedin,
+        hide_keywords=hide_keywords or [],
         **safe_resume,
     )
 

@@ -84,6 +84,7 @@ class PdfRequest(BaseModel):
     phone: str = ""
     linkedin: str = ""
     template_id: Optional[int] = None
+    hide_keywords: list[str] = []
 
 
 class TemplateCreate(BaseModel):
@@ -310,6 +311,7 @@ def gen_pdf(req: PdfRequest):
             profile_email=req.email,
             profile_phone=req.phone,
             profile_linkedin=req.linkedin,
+            hide_keywords=req.hide_keywords,
         )
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=f"PDF compilation failed: {e}")
@@ -336,6 +338,7 @@ def gen_tex(req: PdfRequest, db: Session = Depends(get_db)):
         email=req.email,
         phone=req.phone,
         linkedin=req.linkedin,
+        hide_keywords=req.hide_keywords,
         **req.resume,
     )
     return Response(
