@@ -1,7 +1,10 @@
+import os
 import json
 from google import genai
 from google.genai import types
 
+api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+client = genai.Client(api_key=api_key)
 MODEL_ID = "gemini-flash-latest"
 
 SYSTEM_PROMPT = """You are an elite technical resume writer. Your goal is to make candidates irresistible to ATS systems and hiring managers.
@@ -65,10 +68,8 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
 """
 
 
-async def tailor_resume(profile: dict, jd: str, api_key: str) -> dict:
+async def tailor_resume(profile: dict, jd: str) -> dict:
     """Send profile + JD to Gemini, get back tailored + inflated resume JSON."""
-    client = genai.Client(api_key=api_key)
-    
     prompt = f"""
 ## CANDIDATE PROFILE:
 {json.dumps(profile, indent=2)}
