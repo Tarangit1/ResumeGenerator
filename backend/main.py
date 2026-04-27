@@ -20,14 +20,14 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Resume Generator API")
 
-cors_origins = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:5173,http://localhost:3000,https://resume-generator-sigma-two.vercel.app"
-).split(",")
-
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=[
+        "https://resume-generator-sigma-two.vercel.app",  # Your frontend URL
+        "http://localhost:3000",  # Local development
+        "http://localhost:5173",  # Vite dev server
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
