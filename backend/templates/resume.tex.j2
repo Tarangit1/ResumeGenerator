@@ -36,7 +36,7 @@
     {% if email %}{% set _ = header_items.append('\\href{mailto:' ~ email ~ '}{\\faEnvelope\\ ' ~ email ~ '}') %}{% endif %}
     {% if linkedin %}{% set _ = header_items.append('\\href{' ~ linkedin ~ '}{\\faLinkedin\\ ' ~ linkedin | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
     {% if phone %}{% set _ = header_items.append('\\href{tel:' ~ phone ~ '}{\\faMobile\\ ' ~ phone ~ '}') %}{% endif %}
-    {{ header_items | join(' \\textbar\\ ') }}
+    {{ header_items | join(' \\ $|$ \\ ') }}
     }
 \end{center}
 
@@ -100,12 +100,6 @@
 \textbf{ {{- edu.school -}} } \hfill {{ edu.year }} \\
 \textit{ {{- edu.degree -}} } \\
 {% endfor %}
-{% endif %}
-
-{% if hide_keywords %}
-% Hidden keywords for ATS (white color, tiny size)
-\vfill
-{\color{white}\tiny \noindent {{ hide_keywords | join(', ') }}}
 {% endif %}
 
 \end{document}

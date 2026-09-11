@@ -7,7 +7,10 @@ DATABASE_URL = os.getenv(
     "sqlite:///./resume_gen.db"
 )
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
+# Only add check_same_thread for sqlite, Postgres will fail if this is passed
+connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
