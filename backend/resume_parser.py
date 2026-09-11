@@ -3,7 +3,7 @@ import fitz  # pymupdf
 from google import genai
 from google.genai import types
 
-MODEL_ID = "gemini-flash-latest"
+MODEL_ID = "gemini-2.5-flash"
 
 PARSE_PROMPT = """You are a resume parser. Extract structured profile data from the following resume content.
 
@@ -57,6 +57,7 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
 async def parse_resume(content: str, api_key: str) -> dict:
     """Use Gemini to parse resume text/LaTeX into structured profile data."""
     client = genai.Client(api_key=api_key)
+
     user_prompt = f"""
 ## RESUME CONTENT:
 {content}

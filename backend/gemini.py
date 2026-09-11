@@ -2,8 +2,7 @@ import json
 from google import genai
 from google.genai import types
 
-
-MODEL_ID = "gemini-flash-latest"
+MODEL_ID = "gemini-2.5-flash"
 
 SYSTEM_PROMPT = """You are an elite technical resume writer. Your goal is to make candidates irresistible to ATS systems and hiring managers.
 
@@ -29,8 +28,7 @@ Take each project and experience bullet and rewrite it impactfully:
 - SELECT ONLY the top 1 to 4 most highly relevant projects that best match the JD requirements. Order them by relevance to the JD.
 
 ## 4. OUTPUT FORMAT
-- Return ONLY valid JSON (no markdown, no code fences) with this exact structure.
-- CRITICAL: Use PLAIN TEXT ONLY inside the JSON strings. DO NOT include any LaTeX commands (like \textbf), HTML tags, or backslashes.
+Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
 {
   "summary": "2-3 sentence professional summary tailored to the JD",
   "experience": [
@@ -70,6 +68,7 @@ Take each project and experience bullet and rewrite it impactfully:
 async def tailor_resume(profile: dict, jd: str, api_key: str) -> dict:
     """Send profile + JD to Gemini, get back tailored + inflated resume JSON."""
     client = genai.Client(api_key=api_key)
+
     prompt = f"""
 ## CANDIDATE PROFILE:
 {json.dumps(profile, indent=2)}
