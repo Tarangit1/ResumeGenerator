@@ -83,7 +83,7 @@ class PdfRequest(BaseModel):
     email: str = ""
     phone: str = ""
     linkedin: str = ""
-    template_id: Optional[int] = None
+    template_name: str = "modern.tex.j2"
     hide_keywords: list[str] = []
 
 
@@ -303,14 +303,15 @@ async def generate(
 
 
 @app.post("/api/pdf")
-def gen_pdf(req: PdfRequest):
+async def gen_pdf(req: PdfRequest):
     try:
-        pdf_bytes = generate_pdf(
+        pdf_bytes = await generate_pdf(
             req.resume,
             profile_name=req.name,
             profile_email=req.email,
             profile_phone=req.phone,
             profile_linkedin=req.linkedin,
+            template_name=req.template_name,
             hide_keywords=req.hide_keywords,
         )
     except RuntimeError as e:
@@ -323,15 +324,8 @@ def gen_pdf(req: PdfRequest):
 
 
 @app.post("/api/tex")
-def gen_tex(req: PdfRequest, db: Session = Depends(get_db)):
-    if req.template_id:
-        template_obj = db.query(Template).filter(Template.id == req.template_id).first()
-        from jinja2 import Template as JinjaTemplate
-        if not template_obj:
-            raise HTTPException(status_code=404, detail="Template not found")
-        template = JinjaTemplate(template_obj.latex_code)
-    else:
-        template = tex_env.get_template("resume.tex.j2")
+def gen_tex(req: PdfRequest):
+    template = tex_env.get_template(req.template_name)
         
     tex_content = template.render(
         name=req.name,

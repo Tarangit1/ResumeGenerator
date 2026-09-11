@@ -1,5 +1,5 @@
 import os
-import subprocess
+import asyncio
 import tempfile
 from jinja2 import Environment, FileSystemLoader
 
@@ -52,7 +52,7 @@ def _escape_dict(data):
     return data
 
 
-def generate_pdf(
+async def generate_pdf(
     resume_data: dict,
     profile_name: str = "",
     profile_email: str = "",
@@ -61,7 +61,7 @@ def generate_pdf(
     template_name: str = "resume.tex.j2",
     hide_keywords: list = None,
 ) -> bytes:
-    """Render LaTeX template then compile to PDF with pdflatex. Returns PDF bytes."""
+    """Render LaTeX template then compile to PDF asynchronously with pdflatex. Returns PDF bytes."""
 
     # Escape all user strings so LaTeX doesn't choke
     safe_resume = _escape_dict(resume_data)
@@ -92,20 +92,26 @@ def generate_pdf(
 
         # Run pdflatex twice (resolves references/links)
         for _ in range(2):
-            result = subprocess.run(
-                [
-                    "pdflatex",
-                    "-interaction=nonstopmode",
-                    "-halt-on-error",
-                    "-output-directory", tmpdir,
-                    tex_path,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30,
+            process = await asyncio.create_subprocess_exec(
+                "pdflatex",
+                "-interaction=nonstopmode",
+                "-halt-on-error",
+                "-output-directory", tmpdir,
+                tex_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
 
-            if result.returncode != 0:
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30.0)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.communicate()
+                raise RuntimeError("pdflatex timed out after 30 seconds.")
+
+            if process.returncode != 0:
+                stdout_str = stdout.decode(errors='replace') if stdout else ""
+                stderr_str = stderr.decode(errors='replace') if stderr else ""
                 # Grab the log for debugging
                 log_path = os.path.join(tmpdir, "resume.log")
                 log_content = ""
@@ -113,9 +119,9 @@ def generate_pdf(
                     with open(log_path, "r", encoding="utf-8", errors="replace") as lf:
                         log_content = lf.read()[-2000:]  # last 2000 chars
                 raise RuntimeError(
-                    f"pdflatex failed (exit {result.returncode}).\n"
-                    f"STDOUT: {result.stdout[-500:]}\n"
-                    f"STDERR: {result.stderr[-500:]}\n"
+                    f"pdflatex failed (exit {process.returncode}).\n"
+                    f"STDOUT: {stdout_str[-500:]}\n"
+                    f"STDERR: {stderr_str[-500:]}\n"
                     f"LOG (tail): {log_content}"
                 )
 
