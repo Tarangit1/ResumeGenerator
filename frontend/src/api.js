@@ -29,6 +29,11 @@ export async function apiJson(path, options = {}) {
   return res.json()
 }
 
+export async function apiText(path, options = {}) {
+  const res = await apiFetch(path, options)
+  return res.text()
+}
+
 export async function apiBlob(path, options = {}) {
   const res = await apiFetch(path, options)
   return res.blob()
