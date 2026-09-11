@@ -87,6 +87,30 @@ class PdfRequest(BaseModel):
     hide_keywords: list[str] = []
 
 
+
+
+def check_malicious_latex(latex: str):
+    dangerous_patterns = [
+        r'\\input',
+        r'\\include',
+        r'\\write18',
+        r'\\immediate',
+        r'\\openout',
+        r'\\read',
+        r'\\openin',
+        r'\\catcode',
+        r'\\def\\',
+        r'\\let\\',
+    ]
+    import re
+    from fastapi import HTTPException
+    for pattern in dangerous_patterns:
+        if re.search(pattern, latex):
+            raise HTTPException(status_code=400, detail="Malicious LaTeX command detected.")
+
+class RawLatexRequest(BaseModel):
+    latex: str
+
 class TemplateCreate(BaseModel):
     name: str
     latex_code: str
@@ -341,6 +365,57 @@ def gen_tex(req: PdfRequest):
         headers={"Content-Disposition": "attachment; filename=resume.tex"},
     )
 
+
+
+@app.post("/api/pdf/raw")
+async def gen_pdf_raw(req: RawLatexRequest):
+    check_malicious_latex(req.latex)
+    import os, tempfile, asyncio
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tex_path = os.path.join(tmpdir, "resume.tex")
+        pdf_path = os.path.join(tmpdir, "resume.pdf")
+
+        with open(tex_path, "w", encoding="utf-8") as f:
+            f.write(req.latex)
+
+        # Run pdflatex twice
+        for _ in range(2):
+            process = await asyncio.create_subprocess_exec(
+                "pdflatex",
+                "-interaction=nonstopmode",
+                "-halt-on-error",
+                "-output-directory", tmpdir,
+                tex_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30.0)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.communicate()
+                raise HTTPException(status_code=500, detail="pdflatex timed out")
+
+            if process.returncode != 0:
+                stdout_str = stdout.decode(errors='replace') if stdout else ""
+                stderr_str = stderr.decode(errors='replace') if stderr else ""
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"PDF compilation failed.\nSTDOUT: {stdout_str[-500:]}\nSTDERR: {stderr_str[-500:]}"
+                )
+
+        if not os.path.exists(pdf_path):
+            raise HTTPException(status_code=500, detail="PDF generation failed")
+
+        with open(pdf_path, "rb") as pf:
+            pdf_bytes = pf.read()
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=resume.pdf"},
+    )
 
 @app.get("/api/history")
 def get_history(user: User = Depends(get_current_user), db: Session = Depends(get_db)):

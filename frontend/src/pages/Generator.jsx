@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
-import { apiJson, apiBlob, downloadBlob } from '../api'
+import { apiJson, apiText, apiBlob, downloadBlob } from '../api'
 import ProfileForm from '../components/ProfileForm'
 import JDInput from '../components/JDInput'
 import ResumePreview from '../components/ResumePreview'
@@ -19,8 +19,11 @@ export default function Generator() {
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [error, setError] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState('modern.tex.j2')
+
+  // LaTeX Editor States
   const [isEditing, setIsEditing] = useState(false)
-  const [editedResume, setEditedResume] = useState('')
+  const [rawLatex, setRawLatex] = useState('')
+  const [fetchingLatex, setFetchingLatex] = useState(false)
 
   useEffect(() => {
     apiJson('/api/profile').then((p) => {
@@ -33,9 +36,38 @@ export default function Generator() {
     if (location.state?.resume) {
       setStep(2)
       setResult(location.state)
-      setEditedResume(JSON.stringify(location.state.resume, null, 2))
     }
   }, [location.state])
+
+  // Fetch rendered LaTeX whenever the result or template changes and we are on Step 2
+  useEffect(() => {
+    if (step === 2 && result?.resume) {
+      fetchLatex()
+    }
+  }, [step, result, selectedTemplate])
+
+  const fetchLatex = async () => {
+    setFetchingLatex(true)
+    try {
+      const texContent = await apiText('/api/tex', {
+        method: 'POST',
+        body: JSON.stringify({
+          resume: result.resume,
+          name: profile?.name || '',
+          email: profile?.email || '',
+          phone: profile?.phone || '',
+          linkedin: profile?.linkedin || '',
+          template_name: selectedTemplate,
+          hide_keywords: result?.ats?.missing || [],
+        }),
+      })
+      setRawLatex(texContent)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setFetchingLatex(false)
+    }
+  }
 
   const handleSaveProfile = async (data) => {
     try {
@@ -63,7 +95,6 @@ export default function Generator() {
         body: JSON.stringify({ jd }),
       })
       setResult(data)
-      setEditedResume(JSON.stringify(data.resume, null, 2))
       setStep(2)
     } catch (err) {
       setError(err.message)
@@ -73,18 +104,12 @@ export default function Generator() {
   }
 
   const handleDownloadPdf = async () => {
-    if (!result?.resume) return
+    if (!rawLatex) return
     try {
-      const blob = await apiBlob('/api/pdf', {
+      const blob = await apiBlob('/api/pdf/raw', {
         method: 'POST',
         body: JSON.stringify({
-          resume: isEditing ? JSON.parse(editedResume) : result.resume,
-          name: profile?.name || '',
-          email: profile?.email || '',
-          phone: profile?.phone || '',
-          linkedin: profile?.linkedin || '',
-          template_name: selectedTemplate,
-          hide_keywords: result?.ats?.missing || [],
+          latex: rawLatex
         }),
       })
       downloadBlob(blob, 'resume.pdf')
@@ -93,40 +118,14 @@ export default function Generator() {
     }
   }
 
-  const handleDownloadTex = async () => {
-    if (!result?.resume) return
-    try {
-      const blob = await apiBlob('/api/tex', {
-        method: 'POST',
-        body: JSON.stringify({
-          resume: isEditing ? JSON.parse(editedResume) : result.resume,
-          name: profile?.name || '',
-          email: profile?.email || '',
-          phone: profile?.phone || '',
-          linkedin: profile?.linkedin || '',
-          template_name: selectedTemplate,
-          hide_keywords: result?.ats?.missing || [],
-        }),
-      })
-      downloadBlob(blob, 'resume.tex')
-    } catch (err) {
-      setError(err.message)
-    }
+  const handleDownloadTex = () => {
+    if (!rawLatex) return
+    const blob = new Blob([rawLatex], { type: 'application/x-tex' })
+    downloadBlob(blob, 'resume.tex')
   }
 
   const toggleEdit = () => {
-    if (isEditing) {
-      try {
-        const parsed = JSON.parse(editedResume)
-        setResult({...result, resume: parsed})
-        setIsEditing(false)
-        setError('')
-      } catch(e) {
-        setError('Invalid JSON format in editor')
-      }
-    } else {
-      setIsEditing(true)
-    }
+    setIsEditing(!isEditing)
   }
 
   const steps = [
@@ -209,16 +208,17 @@ export default function Generator() {
               onChange={(e) => setSelectedTemplate(e.target.value)}
               className="input-field"
               style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
+              disabled={isEditing} // Disallow changing template while editing raw LaTeX
             >
               <option value="modern.tex.j2">Modern (Chhabra Layout)</option>
               <option value="resume.tex.j2">Classic Layout</option>
             </select>
 
-            <button className="btn btn-primary" onClick={handleDownloadPdf}>📄 Download PDF</button>
-            <button className="btn btn-secondary" onClick={handleDownloadTex}>📝 Download .tex</button>
+            <button className="btn btn-primary" onClick={handleDownloadPdf} disabled={fetchingLatex}>📄 Download PDF</button>
+            <button className="btn btn-secondary" onClick={handleDownloadTex} disabled={fetchingLatex}>📝 Download .tex</button>
 
             <button className={`btn ${isEditing ? 'btn-primary' : 'btn-secondary'}`} onClick={toggleEdit}>
-              {isEditing ? '💾 Save Changes' : '✏️ Manual Edit'}
+              {isEditing ? '👀 Preview Mode' : '✏️ Edit Raw LaTeX'}
             </button>
 
             <button className="btn btn-secondary" onClick={() => { setResult(null); setStep(1) }} style={{marginLeft: 'auto'}}>
@@ -231,14 +231,18 @@ export default function Generator() {
             {isEditing ? (
               <div>
                 <p style={{color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '10px'}}>
-                  Edit the generated JSON structure manually before downloading:
+                  Edit the raw LaTeX code directly before downloading. Any changes here will be reflected in the final PDF!
                 </p>
-                <textarea
-                  className="input-field"
-                  style={{ width: '100%', minHeight: '500px', fontFamily: 'monospace' }}
-                  value={editedResume}
-                  onChange={(e) => setEditedResume(e.target.value)}
-                />
+                {fetchingLatex ? (
+                  <div style={{ textAlign: 'center', padding: '20px' }}><div className="spinner" /></div>
+                ) : (
+                  <textarea
+                    className="input-field"
+                    style={{ width: '100%', minHeight: '600px', fontFamily: 'monospace', fontSize: '13px' }}
+                    value={rawLatex}
+                    onChange={(e) => setRawLatex(e.target.value)}
+                  />
+                )}
               </div>
             ) : (
               <ResumePreview
