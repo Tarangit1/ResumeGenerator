@@ -18,6 +18,9 @@ export default function Generator() {
   const [loading, setLoading] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [error, setError] = useState('')
+  const [selectedTemplate, setSelectedTemplate] = useState('modern.tex.j2')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedResume, setEditedResume] = useState('')
 
   useEffect(() => {
     apiJson('/api/profile').then((p) => {
@@ -30,6 +33,7 @@ export default function Generator() {
     if (location.state?.resume) {
       setStep(2)
       setResult(location.state)
+      setEditedResume(JSON.stringify(location.state.resume, null, 2))
     }
   }, [location.state])
 
@@ -59,6 +63,7 @@ export default function Generator() {
         body: JSON.stringify({ jd }),
       })
       setResult(data)
+      setEditedResume(JSON.stringify(data.resume, null, 2))
       setStep(2)
     } catch (err) {
       setError(err.message)
@@ -73,11 +78,12 @@ export default function Generator() {
       const blob = await apiBlob('/api/pdf', {
         method: 'POST',
         body: JSON.stringify({
-          resume: result.resume,
+          resume: isEditing ? JSON.parse(editedResume) : result.resume,
           name: profile?.name || '',
           email: profile?.email || '',
           phone: profile?.phone || '',
           linkedin: profile?.linkedin || '',
+          template_name: selectedTemplate,
           hide_keywords: result?.ats?.missing || [],
         }),
       })
@@ -93,17 +99,33 @@ export default function Generator() {
       const blob = await apiBlob('/api/tex', {
         method: 'POST',
         body: JSON.stringify({
-          resume: result.resume,
+          resume: isEditing ? JSON.parse(editedResume) : result.resume,
           name: profile?.name || '',
           email: profile?.email || '',
           phone: profile?.phone || '',
           linkedin: profile?.linkedin || '',
+          template_name: selectedTemplate,
           hide_keywords: result?.ats?.missing || [],
         }),
       })
       downloadBlob(blob, 'resume.tex')
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const toggleEdit = () => {
+    if (isEditing) {
+      try {
+        const parsed = JSON.parse(editedResume)
+        setResult({...result, resume: parsed})
+        setIsEditing(false)
+        setError('')
+      } catch(e) {
+        setError('Invalid JSON format in editor')
+      }
+    } else {
+      setIsEditing(true)
     }
   }
 
@@ -181,22 +203,53 @@ export default function Generator() {
           )}
 
           {/* Download bar */}
-          <div className="download-bar" style={{ marginBottom: 20 }}>
+          <div className="download-bar card" style={{ marginBottom: 20, display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select
+              value={selectedTemplate}
+              onChange={(e) => setSelectedTemplate(e.target.value)}
+              className="input-field"
+              style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
+            >
+              <option value="modern.tex.j2">Modern (Chhabra Layout)</option>
+              <option value="resume.tex.j2">Classic Layout</option>
+            </select>
+
             <button className="btn btn-primary" onClick={handleDownloadPdf}>📄 Download PDF</button>
             <button className="btn btn-secondary" onClick={handleDownloadTex}>📝 Download .tex</button>
-            <button className="btn btn-secondary" onClick={() => { setResult(null); setStep(1) }}>
+
+            <button className={`btn ${isEditing ? 'btn-primary' : 'btn-secondary'}`} onClick={toggleEdit}>
+              {isEditing ? '💾 Save Changes' : '✏️ Manual Edit'}
+            </button>
+
+            <button className="btn btn-secondary" onClick={() => { setResult(null); setStep(1) }} style={{marginLeft: 'auto'}}>
               🔄 Try Different JD
             </button>
           </div>
 
           {/* Resume Preview */}
-          <ResumePreview
-            resume={result.resume}
-            name={profile?.name}
-            email={profile?.email}
-            phone={profile?.phone}
-            linkedin={profile?.linkedin}
-          />
+          <div className="card">
+            {isEditing ? (
+              <div>
+                <p style={{color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '10px'}}>
+                  Edit the generated JSON structure manually before downloading:
+                </p>
+                <textarea
+                  className="input-field"
+                  style={{ width: '100%', minHeight: '500px', fontFamily: 'monospace' }}
+                  value={editedResume}
+                  onChange={(e) => setEditedResume(e.target.value)}
+                />
+              </div>
+            ) : (
+              <ResumePreview
+                resume={result.resume}
+                name={profile?.name}
+                email={profile?.email}
+                phone={profile?.phone}
+                linkedin={profile?.linkedin}
+              />
+            )}
+          </div>
         </div>
       )}
 
