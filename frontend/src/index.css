@@ -704,6 +704,42 @@ body {
   margin-top: 20px;
 }
 
+/* ─── Result Tabs ───────────────────────────────────── */
+.result-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.result-tab {
+  padding: 10px 20px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  transition: var(--transition);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.result-tab:first-child {
+  border-right: none;
+}
+
+.result-tab.active {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+.result-tab:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 /* ─── Loading ───────────────────────────────────────── */
 .loading-overlay {
   position: fixed;

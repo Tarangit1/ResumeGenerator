@@ -26,6 +26,7 @@ class Profile(Base):
     email = Column(String(255), default="")
     phone = Column(String(50), default="")
     linkedin = Column(String(500), default="")
+    github = Column(String(500), default="")
     skills = Column(JSON, default=list)  # ["Python", "React", ...]
     experience = Column(JSON, default=list)
     # [{ "title": "...", "company": "...", "start": "...", "end": "...", "bullets": ["..."] }]

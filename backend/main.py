@@ -1,11 +1,18 @@
 import os
+import logging
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 from jinja2 import Environment, FileSystemLoader
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("resumeforge")
 
 from database import engine, get_db, Base
 from models import User, Profile, ResumeHistory, Template
@@ -18,7 +25,23 @@ from resume_parser import extract_text_from_pdf, parse_resume
 # Create tables
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Resume Generator API")
+# Auto-migration: add new columns to existing tables
+def _run_migrations():
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    if 'profiles' in inspector.get_table_names():
+        columns = [c['name'] for c in inspector.get_columns('profiles')]
+        with engine.begin() as conn:
+            if 'github' not in columns:
+                conn.execute(text("ALTER TABLE profiles ADD COLUMN github VARCHAR(500) DEFAULT ''"))
+                logger.info("Migration: Added 'github' column to profiles table")
+
+try:
+    _run_migrations()
+except Exception as e:
+    logger.warning(f"Migration check failed (OK on fresh DB): {e}")
+
+app = FastAPI(title="Resume Generator API", docs_url="/api/docs", redoc_url=None)
 
 cors_origins = os.getenv(
     "CORS_ORIGINS",
@@ -31,6 +54,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 # Jinja2 for LaTeX
@@ -67,6 +91,7 @@ class ProfileUpdate(BaseModel):
     email: str = ""
     phone: str = ""
     linkedin: str = ""
+    github: str = ""
     skills: list = []
     experience: list = []
     education: list = []
@@ -83,9 +108,12 @@ class PdfRequest(BaseModel):
     email: str = ""
     phone: str = ""
     linkedin: str = ""
+    github: str = ""
     template_name: str = "modern.tex.j2"
     hide_keywords: list[str] = []
 
+
+MAX_LATEX_SIZE = 200_000  # 200KB max for raw LaTeX
 
 
 
@@ -199,6 +227,7 @@ def get_profile(user: User = Depends(get_current_user), db: Session = Depends(ge
         "email": profile.email or "",
         "phone": profile.phone or "",
         "linkedin": profile.linkedin or "",
+        "github": getattr(profile, 'github', '') or "",
         "skills": profile.skills or [],
         "experience": profile.experience or [],
         "education": profile.education or [],
@@ -221,6 +250,7 @@ def update_profile(
     profile.email = data.email
     profile.phone = data.phone
     profile.linkedin = data.linkedin
+    profile.github = data.github
     profile.skills = data.skills
     profile.experience = data.experience
     profile.education = data.education
@@ -327,7 +357,8 @@ async def generate(
 
 
 @app.post("/api/pdf")
-async def gen_pdf(req: PdfRequest):
+async def gen_pdf(req: PdfRequest, user: User = Depends(get_current_user)):
+    logger.info(f"PDF generation requested by user {user.id}, template={req.template_name}")
     try:
         pdf_bytes = await generate_pdf(
             req.resume,
@@ -335,11 +366,14 @@ async def gen_pdf(req: PdfRequest):
             profile_email=req.email,
             profile_phone=req.phone,
             profile_linkedin=req.linkedin,
+            profile_github=req.github,
             template_name=req.template_name,
             hide_keywords=req.hide_keywords,
         )
     except RuntimeError as e:
+        logger.error(f"PDF compilation failed for user {user.id}: {e}")
         raise HTTPException(status_code=500, detail=f"PDF compilation failed: {e}")
+    logger.info(f"PDF generated successfully for user {user.id}, size={len(pdf_bytes)} bytes")
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -348,7 +382,7 @@ async def gen_pdf(req: PdfRequest):
 
 
 @app.post("/api/tex")
-def gen_tex(req: PdfRequest):
+def gen_tex(req: PdfRequest, user: User = Depends(get_current_user)):
     from pdf_generator import _escape_dict, _escape_latex
     template = tex_env.get_template(req.template_name)
 
@@ -356,7 +390,8 @@ def gen_tex(req: PdfRequest):
     safe_name = _escape_latex(req.name)
     safe_email = _escape_latex(req.email)
     safe_phone = _escape_latex(req.phone)
-    safe_linkedin = req.linkedin
+    safe_linkedin = req.linkedin  # URLs: keep raw for \href
+    safe_github = req.github      # URLs: keep raw for \href
     safe_hide_keywords = [_escape_latex(k) for k in (req.hide_keywords or [])]
 
     tex_content = template.render(
@@ -364,6 +399,7 @@ def gen_tex(req: PdfRequest):
         email=safe_email,
         phone=safe_phone,
         linkedin=safe_linkedin,
+        github=safe_github,
         hide_keywords=safe_hide_keywords,
         **safe_resume,
     )
@@ -376,9 +412,12 @@ def gen_tex(req: PdfRequest):
 
 
 @app.post("/api/pdf/raw")
-async def gen_pdf_raw(req: RawLatexRequest):
+async def gen_pdf_raw(req: RawLatexRequest, user: User = Depends(get_current_user)):
+    if len(req.latex) > MAX_LATEX_SIZE:
+        raise HTTPException(status_code=400, detail=f"LaTeX content too large (max {MAX_LATEX_SIZE // 1000}KB)")
     check_malicious_latex(req.latex)
-    import os, tempfile, asyncio
+    logger.info(f"Raw PDF compilation requested by user {user.id}, size={len(req.latex)} bytes")
+    import tempfile, asyncio
     with tempfile.TemporaryDirectory() as tmpdir:
         tex_path = os.path.join(tmpdir, "resume.tex")
         pdf_path = os.path.join(tmpdir, "resume.pdf")
@@ -386,12 +425,13 @@ async def gen_pdf_raw(req: RawLatexRequest):
         with open(tex_path, "w", encoding="utf-8") as f:
             f.write(req.latex)
 
-        # Run pdflatex twice
-        for _ in range(2):
+        # Run pdflatex twice (resolves references/links)
+        for pass_num in range(2):
             process = await asyncio.create_subprocess_exec(
                 "pdflatex",
                 "-interaction=nonstopmode",
                 "-halt-on-error",
+                "-no-shell-escape",
                 "-output-directory", tmpdir,
                 tex_path,
                 stdout=asyncio.subprocess.PIPE,
@@ -403,27 +443,44 @@ async def gen_pdf_raw(req: RawLatexRequest):
             except asyncio.TimeoutError:
                 process.kill()
                 await process.communicate()
-                raise HTTPException(status_code=500, detail="pdflatex timed out")
+                logger.error(f"pdflatex timed out for user {user.id} on pass {pass_num + 1}")
+                raise HTTPException(status_code=500, detail="pdflatex timed out after 30 seconds")
 
             if process.returncode != 0:
                 stdout_str = stdout.decode(errors='replace') if stdout else ""
                 stderr_str = stderr.decode(errors='replace') if stderr else ""
+                # Extract the actual LaTeX error line
+                log_path = os.path.join(tmpdir, "resume.log")
+                error_detail = ""
+                if os.path.exists(log_path):
+                    with open(log_path, "r", encoding="utf-8", errors="replace") as lf:
+                        log_lines = lf.readlines()
+                    # Find lines starting with ! (LaTeX error markers)
+                    error_lines = [l.strip() for l in log_lines if l.startswith("!")]
+                    error_detail = "\n".join(error_lines[:5]) if error_lines else ""
+                logger.error(f"pdflatex failed for user {user.id}: {error_detail or stderr_str[:300]}")
                 raise HTTPException(
                     status_code=500,
-                    detail=f"PDF compilation failed.\nSTDOUT: {stdout_str[-500:]}\nSTDERR: {stderr_str[-500:]}"
+                    detail=f"PDF compilation failed.\n{error_detail or stderr_str[-500:]}"
                 )
 
         if not os.path.exists(pdf_path):
-            raise HTTPException(status_code=500, detail="PDF generation failed")
+            raise HTTPException(status_code=500, detail="PDF generation failed — no output produced")
 
         with open(pdf_path, "rb") as pf:
             pdf_bytes = pf.read()
 
+    logger.info(f"Raw PDF generated for user {user.id}, size={len(pdf_bytes)} bytes")
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=resume.pdf"},
     )
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok", "service": "resumeforge-api"}
+
 
 @app.get("/api/history")
 def get_history(user: User = Depends(get_current_user), db: Session = Depends(get_db)):

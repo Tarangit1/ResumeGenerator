@@ -58,6 +58,7 @@ async def generate_pdf(
     profile_email: str = "",
     profile_phone: str = "",
     profile_linkedin: str = "",
+    profile_github: str = "",
     template_name: str = "resume.tex.j2",
     hide_keywords: list = None,
 ) -> bytes:
@@ -69,6 +70,7 @@ async def generate_pdf(
     safe_email = _escape_latex(profile_email)
     safe_phone = _escape_latex(profile_phone)
     safe_linkedin = profile_linkedin  # URLs: keep raw for \href
+    safe_github = profile_github      # URLs: keep raw for \href
     safe_hide_keywords = [_escape_latex(k) for k in (hide_keywords or [])]
 
     # Render .tex from Jinja2 template
@@ -78,6 +80,7 @@ async def generate_pdf(
         email=safe_email,
         phone=safe_phone,
         linkedin=safe_linkedin,
+        github=safe_github,
         hide_keywords=safe_hide_keywords,
         **safe_resume,
     )
@@ -96,6 +99,7 @@ async def generate_pdf(
                 "pdflatex",
                 "-interaction=nonstopmode",
                 "-halt-on-error",
+                "-no-shell-escape",
                 "-output-directory", tmpdir,
                 tex_path,
                 stdout=asyncio.subprocess.PIPE,

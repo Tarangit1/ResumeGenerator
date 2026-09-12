@@ -4,7 +4,7 @@ const API = import.meta.env.VITE_API_URL || ''
 
 export default function ProfileForm({ initial, onSave }) {
   const [form, setForm] = useState({
-    name: '', email: '', phone: '', linkedin: '',
+    name: '', email: '', phone: '', linkedin: '', github: '',
     skills: [], experience: [], education: [], projects: [],
   })
   const [skillInput, setSkillInput] = useState('')
@@ -20,6 +20,7 @@ export default function ProfileForm({ initial, onSave }) {
       email: data.email || '',
       phone: data.phone || '',
       linkedin: data.linkedin || '',
+      github: data.github || '',
       skills: data.skills || [],
       experience: data.experience || [],
       education: data.education || [],
@@ -99,6 +100,7 @@ export default function ProfileForm({ initial, onSave }) {
         email: initial.email || '',
         phone: initial.phone || '',
         linkedin: initial.linkedin || '',
+        github: initial.github || '',
         skills: initial.skills || [],
         experience: initial.experience || [],
         education: initial.education || [],
@@ -285,6 +287,10 @@ export default function ProfileForm({ initial, onSave }) {
         <div className="form-group">
           <label className="form-label">LinkedIn</label>
           <input className="form-input" value={form.linkedin} onChange={(e) => update('linkedin', e.target.value)} placeholder="https://linkedin.com/in/..." />
+        </div>
+        <div className="form-group">
+          <label className="form-label">GitHub</label>
+          <input className="form-input" value={form.github} onChange={(e) => update('github', e.target.value)} placeholder="https://github.com/..." />
         </div>
       </div>
 

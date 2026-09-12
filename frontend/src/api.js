@@ -3,7 +3,13 @@ const API = import.meta.env.VITE_API_URL || ''
 async function apiFetch(path, options = {}) {
   const token = localStorage.getItem('token')
   const geminiKey = localStorage.getItem('geminiApiKey')
-  const headers = { 'Content-Type': 'application/json', ...options.headers }
+  const headers = { ...options.headers }
+
+  // Only set Content-Type to JSON if not already set and body is a string (JSON payload)
+  if (!headers['Content-Type'] && typeof options.body === 'string') {
+    headers['Content-Type'] = 'application/json'
+  }
+
   if (token) headers['Authorization'] = `Bearer ${token}`
   if (geminiKey) headers['X-Gemini-Key'] = geminiKey
 
@@ -17,8 +23,22 @@ async function apiFetch(path, options = {}) {
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Request failed' }))
-    throw new Error(err.detail || 'Request failed')
+    // Try to extract error detail from JSON response body
+    let errorMessage = `Request failed (${res.status})`
+    try {
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        const err = await res.json()
+        errorMessage = err.detail || errorMessage
+      } else {
+        const text = await res.text()
+        errorMessage = text.slice(0, 500) || errorMessage
+      }
+    } catch {
+      // If we can't parse the error body, use the status text
+      errorMessage = res.statusText || errorMessage
+    }
+    throw new Error(errorMessage)
   }
 
   return res
