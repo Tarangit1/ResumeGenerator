@@ -44,11 +44,11 @@
     {\Huge \textbf{ {{- name -}} }} \\ \vspace{4pt}
     {\small
     {% set header_items = [] %}
-    {% if email %}{% set _ = header_items.append('\href{mailto:' ~ email ~ '}{\faEnvelope\ ' ~ email ~ '}') %}{% endif %}
-    {% if linkedin %}{% set _ = header_items.append('\href{' ~ linkedin ~ '}{\faLinkedin\ ' ~ linkedin | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
-    {% if github %}{% set _ = header_items.append('\href{' ~ github ~ '}{\faGithub\ ' ~ github | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
-    {% if phone %}{% set _ = header_items.append('\href{tel:' ~ phone ~ '}{\faMobile\ ' ~ phone ~ '}') %}{% endif %}
-    {{ header_items | join(' \ $|$ \ ') }}
+    {% if email %}{% set _ = header_items.append('\\href{mailto:' ~ email ~ '}{\\faEnvelope\\ ' ~ email ~ '}') %}{% endif %}
+    {% if linkedin %}{% set _ = header_items.append('\\href{' ~ linkedin ~ '}{\\faLinkedin\\ ' ~ linkedin | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
+    {% if github %}{% set _ = header_items.append('\\href{' ~ github ~ '}{\\faGithub\\ ' ~ github | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
+    {% if phone %}{% set _ = header_items.append('\\href{tel:' ~ phone ~ '}{\\faMobile\\ ' ~ phone ~ '}') %}{% endif %}
+    {{ header_items | join(' \\ $|$ \\ ') }}
     }
 \end{center}
 
@@ -118,8 +118,9 @@
 \section{Education}
 {% for edu in education %}
 \textbf{ {{- edu.school -}} }{% if edu.location %} \hfill {{ edu.location }}{% endif %} \\
-\textit{ {{- edu.degree -}} } \hfill {{ edu.year }} \\
+\textit{ {{- edu.degree -}} } \hfill {{ edu.year }}
 {% if edu.cgpa %}
+\\
 Current CGPA: \textbf{ {{- edu.cgpa -}} }
 {% endif %}
 {% endfor %}
