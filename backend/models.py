@@ -49,6 +49,7 @@ class ResumeHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     jd_text = Column(String, nullable=False)
+    jd_embedding = Column(JSON, nullable=True)  # Vector representation for semantic caching
     generated_resume = Column(JSON, nullable=False)
     ats_score = Column(Float, default=0.0)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

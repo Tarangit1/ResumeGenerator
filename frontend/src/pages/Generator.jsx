@@ -18,6 +18,7 @@ export default function Generator() {
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [error, setError] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState('modern.tex.j2')
+  const [queueStatus, setQueueStatus] = useState('')
 
   // LaTeX + PDF Preview States
   const [rawLatex, setRawLatex] = useState('')
@@ -131,17 +132,38 @@ export default function Generator() {
     }
     setError('')
     setLoading(true)
+    setQueueStatus('Submitting to queue...')
     try {
-      const data = await apiJson('/api/generate', {
+      const { task_id } = await apiJson('/api/generate', {
         method: 'POST',
         body: JSON.stringify({ jd }),
       })
-      setResult(data)
+      
+      // Poll for status
+      let resultData = null
+      while (true) {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        const statusData = await apiJson(`/api/generate/status/${task_id}`)
+        
+        if (statusData.status === 'queued') {
+          setQueueStatus('Waiting in queue (to prevent rate limits)...')
+        } else if (statusData.status === 'processing') {
+          setQueueStatus('Gemini is generating your tailored resume...')
+        } else if (statusData.status === 'completed') {
+          resultData = statusData.result
+          break
+        } else if (statusData.status === 'error') {
+          throw new Error(statusData.detail || 'Generation failed')
+        }
+      }
+      
+      setResult(resultData)
       setStep(2)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
+      setQueueStatus('')
     }
   }
 
@@ -344,7 +366,7 @@ export default function Generator() {
         <div className="loading-overlay">
           <div className="loading-content">
             <div className="spinner" />
-            <p className="loading-text">Gemini is inflating your projects & optimizing for ATS...</p>
+            <p className="loading-text">{queueStatus || 'Processing...'}</p>
             <p className="loading-text" style={{ fontSize: '0.8rem', marginTop: 8, color: 'var(--text-muted)' }}>
               This takes 5-15 seconds
             </p>

@@ -5,7 +5,7 @@ from google.genai import types
 from google.genai.errors import APIError
 
 
-MODEL_ID = "gemini-3.5-flash-lite"
+MODEL_ID = "gemini-3.8-flash"
 
 SYSTEM_PROMPT = """You are an elite technical resume writer. Your goal is to make candidates irresistible to ATS systems and hiring managers.
 
@@ -23,17 +23,18 @@ Take each project and experience bullet and rewrite it impactfully:
 - Mirror these exact keywords naturally throughout the summary, experience, and projects.
 - Use ONLY standard section headings: "Professional Summary", "Work Experience", "Projects", "Technical Skills", "Education".
 - Quantify EVERY achievement with numbers, percentages, or metrics.
+- Bold the most important technical keywords and metrics in your bullet points using Markdown syntax (e.g. "Developed using **React** and **Node.js**, improving speed by **32%**").
 
 ## 3. TAILOR CONTENT
 - Rewrite the professional summary to be a sharp, metric-driven snapshot directly addressing the JD requirements, devoid of fluff.
 - Reorder skills to put JD-matched technical skills first.
 - Reorder experience bullets to highlight work relevant to the JD.
 - SELECT ONLY the top 1 to 4 most highly relevant projects that best match the JD requirements. Order them by relevance to the JD.
-- CRITICAL: Retain exact dates (start/end), locations, CGPA, and project URLs (github_url, demo_url) exactly as they are in the candidate profile. Do NOT invent, remove, or convert these. NEVER convert the CGPA to a 4.0 scale; leave it exactly as written!
+- CRITICAL: Retain exact dates (start/end), locations, CGPA, and project URLs (github_url, demo_url) exactly as they are in the candidate profile. Do NOT invent, remove, or convert these. NEVER convert the CGPA to a 4.0 scale. YOU MUST NOT drop the github_url or demo_url keys if they exist!
 
 ## 4. OUTPUT FORMAT
 - Return ONLY valid JSON (no markdown, no code fences) with this exact structure.
-- CRITICAL: Use PLAIN TEXT ONLY inside the JSON strings. DO NOT include any LaTeX commands (like \\textbf), HTML tags, or backslashes.
+- CRITICAL: Use PLAIN TEXT ONLY inside the JSON strings. DO NOT include any LaTeX commands (like \\textbf), HTML tags, or backslashes. You MAY use Markdown **bold** syntax to highlight important keywords in your bullet points.
 {
   "summary": "2-3 sentence professional summary tailored to the JD",
   "experience": [
@@ -48,8 +49,8 @@ Take each project and experience bullet and rewrite it impactfully:
   "projects": [
     {
       "name": "Impressive Project Name (enterprise-sounding)",
-      "github_url": "URL if exists in profile",
-      "demo_url": "URL if exists in profile",
+      "github_url": "copy exactly from profile",
+      "demo_url": "copy exactly from profile",
       "bullets": ["Inflated achievement 1 with metrics", "Inflated achievement 2 with metrics"],
       "tech": ["Tech1", "Tech2"]
     }
@@ -126,3 +127,19 @@ Generate an optimized, enterprise-level resume strictly in matching JSON structu
                 await asyncio.sleep(delay)
             else:
                 raise e
+
+async def get_embedding(text: str, api_key: str) -> list:
+    """Generate an embedding vector for the given text."""
+    client = genai.Client(api_key=api_key)
+    try:
+        response = await client.aio.models.embed_content(
+            model="text-embedding-004",
+            contents=text,
+        )
+        # Check if embeddings list exists
+        if response.embeddings and len(response.embeddings) > 0:
+            return response.embeddings[0].values
+        return []
+    except Exception as e:
+        print(f"Failed to generate embedding: {e}")
+        return []

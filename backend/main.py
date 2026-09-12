@@ -21,6 +21,97 @@ from gemini import tailor_resume
 from ats_scorer import score_resume
 from pdf_generator import generate_pdf
 from resume_parser import extract_text_from_pdf, parse_resume
+import math
+import uuid
+import asyncio
+
+job_status = {}
+generation_queue = asyncio.Queue()
+
+def cosine_similarity(v1, v2):
+    if not v1 or not v2: return 0.0
+    dot_product = sum(a * b for a, b in zip(v1, v2))
+    magnitude_v1 = math.sqrt(sum(a * a for a in v1))
+    magnitude_v2 = math.sqrt(sum(b * b for b in v2))
+    if magnitude_v1 == 0 or magnitude_v2 == 0: return 0.0
+    return dot_product / (magnitude_v1 * magnitude_v2)
+
+async def worker_task():
+    from database import SessionLocal
+    from gemini import get_embedding, tailor_resume
+    from ats_scorer import score_resume
+    
+    while True:
+        task = await generation_queue.get()
+        task_id = task["task_id"]
+        req = task["req"]
+        user_id = task["user_id"]
+        x_gemini_key = task["x_gemini_key"]
+        
+        job_status[task_id] = {"status": "processing"}
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+            if not profile:
+                job_status[task_id] = {"status": "error", "detail": "Fill your profile first"}
+                continue
+            
+            profile_data = {
+                "name": profile.name,
+                "email": profile.email,
+                "phone": profile.phone,
+                "linkedin": profile.linkedin,
+                "skills": profile.skills or [],
+                "experience": profile.experience or [],
+                "education": profile.education or [],
+                "projects": profile.projects or [],
+            }
+            
+            jd_embed = await get_embedding(req.jd, x_gemini_key)
+            
+            records = db.query(ResumeHistory).filter(ResumeHistory.user_id == user_id).order_by(ResumeHistory.created_at.desc()).limit(20).all()
+            matched_resume = None
+            matched_ats = None
+            
+            if jd_embed:
+                for r in records:
+                    if r.jd_embedding:
+                        sim = cosine_similarity(jd_embed, r.jd_embedding)
+                        if sim > 0.93: # 93% match for semantic cache
+                            matched_resume = r.generated_resume
+                            matched_ats = {"score": r.ats_score, "missing": []}
+                            break
+            
+            if matched_resume:
+                resume = matched_resume
+                ats = matched_ats
+            else:
+                resume = await tailor_resume(profile_data, req.jd, x_gemini_key)
+                ats = score_resume(resume, req.jd)
+                
+                history = ResumeHistory(
+                    user_id=user_id,
+                    jd_text=req.jd,
+                    jd_embedding=jd_embed,
+                    generated_resume=resume,
+                    ats_score=ats["score"],
+                )
+                db.add(history)
+                db.commit()
+            
+            job_status[task_id] = {
+                "status": "completed",
+                "result": {
+                    "resume": resume,
+                    "ats": ats,
+                }
+            }
+        except Exception as e:
+            job_status[task_id] = {"status": "error", "detail": str(e)}
+        finally:
+            db.close()
+            generation_queue.task_done()
+            await asyncio.sleep(4.0) # 4 second delay to protect Gemini rate limits
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -56,6 +147,10 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(worker_task())
 
 # Jinja2 for LaTeX
 tex_env = Environment(
@@ -310,50 +405,31 @@ async def import_latex(
 async def generate(
     req: GenerateRequest,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
     x_gemini_key: str = Header(None)
 ):
     if not x_gemini_key:
         raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header. Please add your key in the dashboard.")
 
-    profile = db.query(Profile).filter(Profile.user_id == user.id).first()
-    if not profile:
-        raise HTTPException(status_code=400, detail="Fill your profile first")
+    task_id = str(uuid.uuid4())
+    job_status[task_id] = {"status": "queued"}
+    
+    await generation_queue.put({
+        "task_id": task_id,
+        "req": req,
+        "user_id": user.id,
+        "x_gemini_key": x_gemini_key
+    })
+    
+    return {"task_id": task_id}
 
-    profile_data = {
-        "name": profile.name,
-        "email": profile.email,
-        "phone": profile.phone,
-        "linkedin": profile.linkedin,
-        "skills": profile.skills or [],
-        "experience": profile.experience or [],
-        "education": profile.education or [],
-        "projects": profile.projects or [],
-    }
-
-    try:
-        # Call Gemini
-        resume = await tailor_resume(profile_data, req.jd, x_gemini_key)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI Processing Error: {str(e)}")
-
-    # Score ATS
-    ats = score_resume(resume, req.jd)
-
-    # Save to history
-    history = ResumeHistory(
-        user_id=user.id,
-        jd_text=req.jd,
-        generated_resume=resume,
-        ats_score=ats["score"],
-    )
-    db.add(history)
-    db.commit()
-
-    return {
-        "resume": resume,
-        "ats": ats,
-    }
+@app.get("/api/generate/status/{task_id}")
+async def get_generate_status(task_id: str):
+    if task_id not in job_status:
+        raise HTTPException(status_code=404, detail="Task not found")
+    status_data = job_status[task_id]
+    if status_data["status"] == "error":
+        raise HTTPException(status_code=500, detail=status_data.get("detail", "AI Processing Error"))
+    return status_data
 
 
 @app.post("/api/pdf")

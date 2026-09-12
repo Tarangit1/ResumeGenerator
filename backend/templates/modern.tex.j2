@@ -99,7 +99,7 @@
 \hfill
 {% set proj_links = [] %}
 {% if proj.github_url %}{% set _ = proj_links.append('\\href{' ~ proj.github_url ~ '}{\\textit{GitHub \\faGithub}}') %}{% endif %}
-{% if proj.demo_url %}{% set _ = proj_links.append('\\href{' ~ proj.demo_url ~ '}{\\textit{Demo \\faExternalLink*}}') %}{% endif %}
+{% if proj.demo_url %}{% set _ = proj_links.append('\\href{' ~ proj.demo_url ~ '}{\\textit{Demo \\faExternalLinkAlt}}') %}{% endif %}
 {{ proj_links | join(' \\ $|$\\ ') }}
 {%- endif %} \\
 \textit{Tech Stack: {{ proj.tech | join(', ') }}}

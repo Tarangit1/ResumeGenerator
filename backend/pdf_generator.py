@@ -34,6 +34,11 @@ def _escape_latex(text: str) -> str:
     ]
     for old, new in replacements:
         text = text.replace(old, new)
+        
+    import re
+    # Convert Markdown **bold** to LaTeX \textbf{bold}
+    text = re.sub(r'\*\*(.*?)\*\*', r'\\textbf{\1}', text)
+    
     return text
 
 
