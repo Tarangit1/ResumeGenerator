@@ -44,11 +44,11 @@
     {\Huge \textbf{ {{- name -}} }} \\ \vspace{4pt}
     {\small
     {% set header_items = [] %}
-    {% if email %}{% set _ = header_items.append('\href{mailto:' ~ email ~ '}{\faEnvelope\ ' ~ email ~ '}') %}{% endif %}
-    {% if linkedin %}{% set _ = header_items.append('\href{' ~ linkedin ~ '}{\faLinkedin\ ' ~ linkedin | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
-    {% if github %}{% set _ = header_items.append('\href{' ~ github ~ '}{\faGithub\ ' ~ github | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
-    {% if phone %}{% set _ = header_items.append('\href{tel:' ~ phone ~ '}{\faMobile\ ' ~ phone ~ '}') %}{% endif %}
-    {{ header_items | join(' \ $|$ \ ') }}
+    {% if email %}{% set _ = header_items.append('\\href{mailto:' ~ email ~ '}{\\faEnvelope\\ ' ~ email ~ '}') %}{% endif %}
+    {% if linkedin %}{% set _ = header_items.append('\\href{' ~ linkedin ~ '}{\\faLinkedin\\ LinkedIn}') %}{% endif %}
+    {% if github %}{% set _ = header_items.append('\\href{' ~ github ~ '}{\\faGithub\\ GitHub}') %}{% endif %}
+    {% if phone %}{% set _ = header_items.append('\\href{tel:' ~ phone ~ '}{\\faMobile\\ ' ~ phone ~ '}') %}{% endif %}
+    {{ header_items | join(' \\ $|$ \\ ') }}
     }
 \end{center}
 
@@ -61,7 +61,7 @@
 %---------------- TECHNICAL SKILLS ----------------%
 {% if skills %}
 \section{Technical Skills}
-\begin{tabular}{@{}l l}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
 {% if skills is mapping %}
 {% for category, skill_list in skills.items() %}
 {% if skill_list %}
@@ -71,7 +71,7 @@
 {% else %}
     \textbf{Skills:} & {{ skills | join(', ') }}\\
 {% endif %}
-\end{tabular}
+\end{tabularx}
 {% endif %}
 
 %---------------- EXPERIENCE ----------------%
@@ -98,8 +98,8 @@
 {% if proj.github_url or proj.demo_url %}
 \hfill
 {% set proj_links = [] %}
-{% if proj.github_url %}{% set _ = proj_links.append('\href{' ~ proj.github_url ~ '}{\textit{GitHub \faGithub}}') %}{% endif %}
-{% if proj.demo_url %}{% set _ = proj_links.append('\href{' ~ proj.demo_url ~ '}{\textit{Demo \faExternalLink*}}') %}{% endif %}
+{% if proj.github_url %}{% set _ = proj_links.append('\\href{' ~ proj.github_url ~ '}{\\textit{GitHub \\faGithub}}') %}{% endif %}
+{% if proj.demo_url %}{% set _ = proj_links.append('\\href{' ~ proj.demo_url ~ '}{\\textit{Demo \\faExternalLink*}}') %}{% endif %}
 {{ proj_links | join(' \\ $|$\\ ') }}
 {% endif %}
 \\
@@ -118,10 +118,10 @@
 \section{Education}
 {% for edu in education %}
 \textbf{ {{- edu.school -}} }{% if edu.location %} \hfill {{ edu.location }}{% endif %} \\
-\textit{ {{- edu.degree -}} } \hfill {{ edu.year }} \\
-{% if edu.cgpa %}
+\textit{ {{- edu.degree -}} } \hfill {{ edu.start }} -- {{ edu.end }}
+{%- if edu.cgpa %} \\
 Current CGPA: \textbf{ {{- edu.cgpa -}} }
-{% endif %}
+{%- endif %}
 {% endfor %}
 {% endif %}
 

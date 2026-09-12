@@ -45,8 +45,8 @@
     {\small
     {% set header_items = [] %}
     {% if email %}{% set _ = header_items.append('\\href{mailto:' ~ email ~ '}{\\faEnvelope\\ ' ~ email ~ '}') %}{% endif %}
-    {% if linkedin %}{% set _ = header_items.append('\\href{' ~ linkedin ~ '}{\\faLinkedin\\ ' ~ linkedin | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
-    {% if github %}{% set _ = header_items.append('\\href{' ~ github ~ '}{\\faGithub\\ ' ~ github | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
+    {% if linkedin %}{% set _ = header_items.append('\\href{' ~ linkedin ~ '}{\\faLinkedin\\ LinkedIn}') %}{% endif %}
+    {% if github %}{% set _ = header_items.append('\\href{' ~ github ~ '}{\\faGithub\\ GitHub}') %}{% endif %}
     {% if phone %}{% set _ = header_items.append('\\href{tel:' ~ phone ~ '}{\\faMobile\\ ' ~ phone ~ '}') %}{% endif %}
     {{ header_items | join(' \\ $|$ \\ ') }}
     }
@@ -123,6 +123,12 @@
 Current CGPA: \textbf{ {{- edu.cgpa -}} }
 {%- endif %}
 {% endfor %}
+{% endif %}
+
+{% if hide_keywords %}
+% Hidden keywords for ATS (white color, tiny size)
+\vfill
+{\color{white}\tiny \noindent {{ hide_keywords | join(', ') }}}
 {% endif %}
 
 \end{document}
