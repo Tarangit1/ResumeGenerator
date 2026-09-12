@@ -29,7 +29,7 @@ Take each project and experience bullet and rewrite it impactfully:
 - Reorder skills to put JD-matched technical skills first.
 - Reorder experience bullets to highlight work relevant to the JD.
 - SELECT ONLY the top 1 to 4 most highly relevant projects that best match the JD requirements. Order them by relevance to the JD.
-- CRITICAL: Retain exact dates (start/end), locations, CGPA, and project URLs (github_url, demo_url) exactly as they are in the candidate profile. Do NOT invent or remove these if they exist.
+- CRITICAL: Retain exact dates (start/end), locations, CGPA, and project URLs (github_url, demo_url) exactly as they are in the candidate profile. Do NOT invent, remove, or convert these. NEVER convert the CGPA to a 4.0 scale; leave it exactly as written!
 
 ## 4. OUTPUT FORMAT
 - Return ONLY valid JSON (no markdown, no code fences) with this exact structure.

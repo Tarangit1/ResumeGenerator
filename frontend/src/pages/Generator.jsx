@@ -45,10 +45,10 @@ export default function Generator() {
 
   // Fetch rendered LaTeX whenever the result or template changes and we are on Step 2
   useEffect(() => {
-    if (step === 2 && result?.resume) {
+    if (step === 2 && result?.resume && !loadingProfile) {
       fetchLatex()
     }
-  }, [step, result, selectedTemplate])
+  }, [step, result, selectedTemplate, loadingProfile])
 
   // Cleanup blob URL on unmount
   useEffect(() => {

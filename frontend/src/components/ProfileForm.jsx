@@ -189,9 +189,8 @@ export default function ProfileForm({ initial, onSave }) {
     update('projects', copy)
   }
 
-  // Education
   const addEducation = () => {
-    update('education', [...form.education, { degree: '', school: '', year: '' }])
+    update('education', [...form.education, { degree: '', school: '', start: '', end: '', location: '', cgpa: '' }])
   }
 
   const updateEdu = (idx, key, val) => {
@@ -378,6 +377,14 @@ export default function ProfileForm({ initial, onSave }) {
             <div className="form-group">
               <input className="form-input" value={proj.name} onChange={(e) => updateProj(idx, 'name', e.target.value)} placeholder="Project name" />
             </div>
+            <div className="form-row">
+              <div className="form-group">
+                <input className="form-input" value={proj.github_url || ''} onChange={(e) => updateProj(idx, 'github_url', e.target.value)} placeholder="GitHub URL (optional)" />
+              </div>
+              <div className="form-group">
+                <input className="form-input" value={proj.demo_url || ''} onChange={(e) => updateProj(idx, 'demo_url', e.target.value)} placeholder="Live Demo URL (optional)" />
+              </div>
+            </div>
             <div className="form-group">
               <textarea
                 className="form-textarea"
@@ -417,8 +424,21 @@ export default function ProfileForm({ initial, onSave }) {
                 <input className="form-input" value={edu.school} onChange={(e) => updateEdu(idx, 'school', e.target.value)} placeholder="School / University" />
               </div>
             </div>
-            <div className="form-group">
-              <input className="form-input" value={edu.year} onChange={(e) => updateEdu(idx, 'year', e.target.value)} placeholder="Year (e.g., 2024)" />
+            <div className="form-row">
+              <div className="form-group">
+                <input className="form-input" value={edu.start || ''} onChange={(e) => updateEdu(idx, 'start', e.target.value)} placeholder="Start Date (e.g., Aug 2023)" />
+              </div>
+              <div className="form-group">
+                <input className="form-input" value={edu.end || ''} onChange={(e) => updateEdu(idx, 'end', e.target.value)} placeholder="End Date (e.g., May 2027)" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <input className="form-input" value={edu.location || ''} onChange={(e) => updateEdu(idx, 'location', e.target.value)} placeholder="Location (e.g., Punjab, India)" />
+              </div>
+              <div className="form-group">
+                <input className="form-input" value={edu.cgpa || ''} onChange={(e) => updateEdu(idx, 'cgpa', e.target.value)} placeholder="CGPA (e.g., 8.64/10)" />
+              </div>
             </div>
           </div>
         ))}
