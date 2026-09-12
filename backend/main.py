@@ -349,15 +349,23 @@ async def gen_pdf(req: PdfRequest):
 
 @app.post("/api/tex")
 def gen_tex(req: PdfRequest):
+    from pdf_generator import _escape_dict, _escape_latex
     template = tex_env.get_template(req.template_name)
-        
+
+    safe_resume = _escape_dict(req.resume)
+    safe_name = _escape_latex(req.name)
+    safe_email = _escape_latex(req.email)
+    safe_phone = _escape_latex(req.phone)
+    safe_linkedin = req.linkedin
+    safe_hide_keywords = [_escape_latex(k) for k in (req.hide_keywords or [])]
+
     tex_content = template.render(
-        name=req.name,
-        email=req.email,
-        phone=req.phone,
-        linkedin=req.linkedin,
-        hide_keywords=req.hide_keywords,
-        **req.resume,
+        name=safe_name,
+        email=safe_email,
+        phone=safe_phone,
+        linkedin=safe_linkedin,
+        hide_keywords=safe_hide_keywords,
+        **safe_resume,
     )
     return Response(
         content=tex_content,
