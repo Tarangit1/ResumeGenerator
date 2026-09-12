@@ -1,11 +1,12 @@
 \documentclass[a4paper,11pt]{article}
 
-% Page Setup
+%---------------- PAGE SETUP ----------------%
 \newcommand{\projectsep}{
-  \vspace{4pt} % Adjust this number to control the top gap
+  \vspace{4pt}
   \centerline{\color{gray!20}\rule{0.6\linewidth}{0.1pt}}
-  \vspace{2pt} % Adjust this number to control the bottom gap
+  \vspace{2pt}
 }
+
 \usepackage[left=1.2cm,right=1.2cm,top=1.2cm,bottom=1.2cm]{geometry}
 \usepackage{parskip}
 \usepackage{tabularx}
@@ -15,15 +16,25 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{fontawesome5}
 
-% Define custom colors for a modern look
-\definecolor{darkblue}{RGB}{0, 0, 100}
+%---------------- FORMATTING ----------------%
+\definecolor{darkblue}{RGB}{0,0,100}
 
-% Section formatting
-\titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
+\titleformat{\section}
+  {\large\bfseries\uppercase}
+  {}
+  {0em}
+  {}
+  [\titlerule]
+
 \titlespacing{\section}{0pt}{8pt}{6pt}
 
-% Custom list settings for projects and experience
-\setlist[itemize]{leftmargin=15pt, noitemsep, topsep=0pt, partopsep=0pt, parsep=2pt}
+\setlist[itemize]{
+    leftmargin=15pt,
+    noitemsep,
+    topsep=0pt,
+    partopsep=0pt,
+    parsep=2pt
+}
 
 \begin{document}
 \pagestyle{empty}
@@ -34,7 +45,8 @@
     {\small
     {% set header_items = [] %}
     {% if email %}{% set _ = header_items.append('\\href{mailto:' ~ email ~ '}{\\faEnvelope\\ ' ~ email ~ '}') %}{% endif %}
-    {% if linkedin %}{% set _ = header_items.append('\\href{' ~ linkedin ~ '}{\\faLinkedin\\ ' ~ linkedin | replace('https://', '') | replace('www.', '') ~ '}') %}{% endif %}
+    {% if linkedin %}{% set _ = header_items.append('\\href{' ~ linkedin ~ '}{\\faLinkedin\\ LinkedIn}') %}{% endif %}
+    {% if github %}{% set _ = header_items.append('\\href{' ~ github ~ '}{\\faGithub\\ GitHub}') %}{% endif %}
     {% if phone %}{% set _ = header_items.append('\\href{tel:' ~ phone ~ '}{\\faMobile\\ ' ~ phone ~ '}') %}{% endif %}
     {{ header_items | join(' \\ $|$ \\ ') }}
     }
@@ -49,7 +61,7 @@
 %---------------- TECHNICAL SKILLS ----------------%
 {% if skills %}
 \section{Technical Skills}
-\begin{tabular}{@{}l l}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
 {% if skills is mapping %}
 {% for category, skill_list in skills.items() %}
 {% if skill_list %}
@@ -59,7 +71,7 @@
 {% else %}
     \textbf{Skills:} & {{ skills | join(', ') }}\\
 {% endif %}
-\end{tabular}
+\end{tabularx}
 {% endif %}
 
 %---------------- EXPERIENCE ----------------%
@@ -82,7 +94,15 @@
 \section{Projects}
 \vspace{8pt}
 {% for proj in projects %}
-\textbf{ {{- proj.name -}} } \\
+\textbf{ {{- proj.name -}} }
+{% if proj.github_url or proj.demo_url %}
+\hfill
+{% set proj_links = [] %}
+{% if proj.github_url %}{% set _ = proj_links.append('\\href{' ~ proj.github_url ~ '}{\\textit{GitHub \\faGithub}}') %}{% endif %}
+{% if proj.demo_url %}{% set _ = proj_links.append('\\href{' ~ proj.demo_url ~ '}{\\textit{Demo \\faExternalLink*}}') %}{% endif %}
+{{ proj_links | join(' \\ $|$\\ ') }}
+{% endif %}
+\\
 \textit{Tech Stack: {{ proj.tech | join(', ') }}}
 \begin{itemize}
 {% for bullet in proj.bullets %}
@@ -97,8 +117,11 @@
 {% if education %}
 \section{Education}
 {% for edu in education %}
-\textbf{ {{- edu.school -}} } \hfill {{ edu.year }} \\
-\textit{ {{- edu.degree -}} } \\
+\textbf{ {{- edu.school -}} }{% if edu.location %} \hfill {{ edu.location }}{% endif %} \\
+\textit{ {{- edu.degree -}} } \hfill {{ edu.start }} -- {{ edu.end }}
+{%- if edu.cgpa %} \\
+Current CGPA: \textbf{ {{- edu.cgpa -}} }
+{%- endif %}
 {% endfor %}
 {% endif %}
 

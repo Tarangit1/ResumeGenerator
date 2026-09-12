@@ -7,12 +7,12 @@ from jinja2 import Environment, FileSystemLoader
 # Jinja2 env for LaTeX — custom delimiters to avoid clashing with TeX braces
 _tex_env = Environment(
     loader=FileSystemLoader(os.path.join(os.path.dirname(__file__), "templates")),
-    block_start_string="{% ",
-    block_end_string=" %}",
-    variable_start_string="{{ ",
-    variable_end_string=" }}",
-    comment_start_string="{# ",
-    comment_end_string=" #}",
+    block_start_string='{%',
+    block_end_string='%}',
+    variable_start_string='{{',
+    variable_end_string='}}',
+    comment_start_string='{#',
+    comment_end_string='#}',
 )
 
 
@@ -44,7 +44,11 @@ def _escape_dict(data):
     if isinstance(data, list):
         return [_escape_dict(item) for item in data]
     if isinstance(data, dict):
-        return {k: _escape_dict(v) for k, v in data.items()}
+        escaped = {}
+        for k, v in data.items():
+            safe_key = _escape_latex(k) if isinstance(k, str) else k
+            escaped[safe_key] = _escape_dict(v)
+        return escaped
     return data
 
 
@@ -65,6 +69,7 @@ def generate_pdf(
     safe_email = _escape_latex(profile_email)
     safe_phone = _escape_latex(profile_phone)
     safe_linkedin = profile_linkedin  # URLs: keep raw for \href
+    safe_hide_keywords = [_escape_latex(k) for k in (hide_keywords or [])]
 
     # Render .tex from Jinja2 template
     template = _tex_env.get_template(template_name)
@@ -73,7 +78,7 @@ def generate_pdf(
         email=safe_email,
         phone=safe_phone,
         linkedin=safe_linkedin,
-        hide_keywords=hide_keywords or [],
+        hide_keywords=safe_hide_keywords,
         **safe_resume,
     )
 

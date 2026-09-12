@@ -36,12 +36,12 @@ app.add_middleware(
 # Jinja2 for LaTeX
 tex_env = Environment(
     loader=FileSystemLoader(os.path.join(os.path.dirname(__file__), "templates")),
-    block_start_string="{% ",
-    block_end_string=" %}",
-    variable_start_string="{{ ",
-    variable_end_string=" }}",
-    comment_start_string="{# ",
-    comment_end_string=" #}",
+    block_start_string="{%",
+    block_end_string="%}",
+    variable_start_string="{{",
+    variable_end_string="}}",
+    comment_start_string="{#",
+    comment_end_string="#}",
 )
 
 

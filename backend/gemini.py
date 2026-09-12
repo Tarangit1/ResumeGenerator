@@ -1,9 +1,11 @@
+import asyncio
 import json
 from google import genai
 from google.genai import types
+from google.genai.errors import APIError
 
 
-MODEL_ID = "gemini-flash-latest"
+MODEL_ID = "gemini-3.5-flash-lite"
 
 SYSTEM_PROMPT = """You are an elite technical resume writer. Your goal is to make candidates irresistible to ATS systems and hiring managers.
 
@@ -27,6 +29,7 @@ Take each project and experience bullet and rewrite it impactfully:
 - Reorder skills to put JD-matched technical skills first.
 - Reorder experience bullets to highlight work relevant to the JD.
 - SELECT ONLY the top 1 to 4 most highly relevant projects that best match the JD requirements. Order them by relevance to the JD.
+- CRITICAL: Retain exact dates (start/end), locations, CGPA, and project URLs (github_url, demo_url) exactly as they are in the candidate profile. Do NOT invent or remove these if they exist.
 
 ## 4. OUTPUT FORMAT
 - Return ONLY valid JSON (no markdown, no code fences) with this exact structure.
@@ -45,6 +48,8 @@ Take each project and experience bullet and rewrite it impactfully:
   "projects": [
     {
       "name": "Impressive Project Name (enterprise-sounding)",
+      "github_url": "URL if exists in profile",
+      "demo_url": "URL if exists in profile",
       "bullets": ["Inflated achievement 1 with metrics", "Inflated achievement 2 with metrics"],
       "tech": ["Tech1", "Tech2"]
     }
@@ -59,7 +64,10 @@ Take each project and experience bullet and rewrite it impactfully:
     {
       "degree": "...",
       "school": "...",
-      "year": "..."
+      "location": "...",
+      "start": "...",
+      "end": "...",
+      "cgpa": "..."
     }
   ],
   "ats_keywords": ["List of actual technical skills, tools, and domain keywords extracted from the JD"]
@@ -80,21 +88,41 @@ async def tailor_resume(profile: dict, jd: str, api_key: str) -> dict:
 Generate an optimized, enterprise-level resume strictly in matching JSON structure.
 """
 
-    response = await client.aio.models.generate_content(
-        model=MODEL_ID,
-        contents=[SYSTEM_PROMPT, prompt],
-        config=types.GenerateContentConfig(
-            temperature=0.7,
-            response_mime_type="application/json",
-        ),
-    )
+    max_retries = 3
+    base_delay = 2
 
-    text = response.text.strip()
-    # Strip markdown code fences if Gemini wraps them
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
+    for attempt in range(max_retries):
+        try:
+            response = await client.aio.models.generate_content(
+                model=MODEL_ID,
+                contents=[SYSTEM_PROMPT, prompt],
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    response_mime_type="application/json",
+                ),
+            )
 
-    return json.loads(text)
+            text = response.text.strip()
+            # Strip markdown code fences if Gemini wraps them
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1]
+                if text.endswith("```"):
+                    text = text[:-3]
+                text = text.strip()
+
+            return json.loads(text)
+            
+        except APIError as e:
+            if e.code in [503, 429] and attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)
+                print(f"Gemini API rate limited/unavailable (Code {e.code}). Retrying in {delay} seconds...")
+                await asyncio.sleep(delay)
+            else:
+                raise e
+        except Exception as e:
+            if attempt < max_retries - 1 and "503" in str(e):
+                delay = base_delay * (2 ** attempt)
+                print(f"Gemini API 503 Exception. Retrying in {delay} seconds...")
+                await asyncio.sleep(delay)
+            else:
+                raise e
