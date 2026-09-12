@@ -2,7 +2,7 @@ import json
 from google import genai
 from google.genai import types
 
-MODEL_ID = "gemini-flash-latest"
+MODEL_ID = "gemini-3.5-flash-lite"
 
 SYSTEM_PROMPT = """You are an elite technical resume writer. Your goal is to make candidates irresistible to ATS systems and hiring managers.
 
