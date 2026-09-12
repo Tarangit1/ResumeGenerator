@@ -122,6 +122,9 @@ async def generate_pdf(
                 if os.path.exists(log_path):
                     with open(log_path, "r", encoding="utf-8", errors="replace") as lf:
                         log_content = lf.read()[-2000:]  # last 2000 chars
+                print("================ FAILING LATEX SOURCE ================")
+                print(tex_source)
+                print("======================================================")
                 raise RuntimeError(
                     f"pdflatex failed (exit {process.returncode}).\n"
                     f"STDOUT: {stdout_str[-500:]}\n"
