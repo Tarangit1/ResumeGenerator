@@ -1,7 +1,14 @@
 __pycache__
 *.pyc
-*.db
+*.pyo
+*.pyd
+.git
+.gitignore
+resume_gen.db
 error.log
 error.txt
 output.txt
+tests/
+test_*.py
 .env
+*.md

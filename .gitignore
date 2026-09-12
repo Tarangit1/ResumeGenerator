@@ -13,6 +13,12 @@ __pycache__/
 venv/
 .env
 
+# Database & Logs
+*.db
+*.log
+error.txt
+output.txt
+
 # OS
 .DS_Store
 Thumbs.db

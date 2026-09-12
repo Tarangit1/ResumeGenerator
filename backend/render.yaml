@@ -1,0 +1,25 @@
+# render.yaml — Render Blueprint for Resume Generator backend
+# https://docs.render.com/blueprint-spec
+
+services:
+  - type: web
+    name: resumeforge-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: singapore  # closest to India
+    plan: free
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: resumeforge-db
+          property: connectionString
+      - key: CORS_ORIGINS
+        value: https://resume-generator-sigma-two.vercel.app,http://localhost:5173,http://localhost:3000
+    healthCheckPath: /api/health
+
+databases:
+  - name: resumeforge-db
+    plan: free
+    region: singapore

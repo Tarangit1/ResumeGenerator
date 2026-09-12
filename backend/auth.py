@@ -12,6 +12,13 @@ SECRET_KEY = os.getenv("JWT_SECRET", "super-secret-change-me-in-prod")
 ALGORITHM = "HS256"
 TOKEN_EXPIRY_HOURS = 24
 
+if SECRET_KEY == "super-secret-change-me-in-prod":
+    import warnings
+    warnings.warn(
+        "⚠️  JWT_SECRET not set! Using insecure default. Set JWT_SECRET env var in production.",
+        stacklevel=1,
+    )
+
 security = HTTPBearer()
 
 

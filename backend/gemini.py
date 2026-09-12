@@ -32,8 +32,7 @@ Take each project and experience bullet and rewrite it impactfully:
 - CRITICAL: Retain exact dates (start/end), locations, CGPA, and project URLs (github_url, demo_url) exactly as they are in the candidate profile. Do NOT invent or remove these if they exist.
 
 ## 4. OUTPUT FORMAT
-- Return ONLY valid JSON (no markdown, no code fences) with this exact structure.
-- CRITICAL: Use PLAIN TEXT ONLY inside the JSON strings. DO NOT include any LaTeX commands (like \textbf), HTML tags, or backslashes.
+Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
 {
   "summary": "2-3 sentence professional summary tailored to the JD",
   "experience": [
@@ -78,6 +77,7 @@ Take each project and experience bullet and rewrite it impactfully:
 async def tailor_resume(profile: dict, jd: str, api_key: str) -> dict:
     """Send profile + JD to Gemini, get back tailored + inflated resume JSON."""
     client = genai.Client(api_key=api_key)
+
     prompt = f"""
 ## CANDIDATE PROFILE:
 {json.dumps(profile, indent=2)}
