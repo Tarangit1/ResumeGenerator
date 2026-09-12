@@ -165,11 +165,7 @@ export default function Generator() {
     }
   }
 
-  const handleDownloadTex = () => {
-    if (!rawLatex) return
-    const blob = new Blob([rawLatex], { type: 'application/x-tex' })
-    downloadBlob(blob, 'resume.tex')
-  }
+
 
   const steps = [
     { label: 'Profile', icon: '👤' },
@@ -259,7 +255,7 @@ export default function Generator() {
             <button className="btn btn-primary" onClick={handleDownloadPdf} disabled={fetchingLatex || downloadingPdf}>
               {downloadingPdf ? '⏳ Compiling PDF...' : '📄 Download PDF'}
             </button>
-            <button className="btn btn-secondary" onClick={handleDownloadTex} disabled={fetchingLatex}>📝 Download .tex</button>
+
 
             <button className="btn btn-secondary" onClick={() => { setResult(null); setStep(1); setPdfPreviewUrl(null) }} style={{marginLeft: 'auto'}}>
               🔄 Try Different JD
