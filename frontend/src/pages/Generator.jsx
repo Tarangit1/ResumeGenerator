@@ -20,6 +20,9 @@ export default function Generator() {
   const [selectedTemplate, setSelectedTemplate] = useState('modern.tex.j2')
   const [queueStatus, setQueueStatus] = useState('')
 
+  // UI state for optional JD tailoring
+  const [useTailoring, setUseTailoring] = useState(false)
+
   // LaTeX + PDF Preview States
   const [rawLatex, setRawLatex] = useState('')
   const [fetchingLatex, setFetchingLatex] = useState(false)
@@ -39,14 +42,14 @@ export default function Generator() {
   // If we came from history, jump to result step
   useEffect(() => {
     if (location.state?.resume) {
-      setStep(2)
+      setStep(1)
       setResult(location.state)
     }
   }, [location.state])
 
-  // Fetch rendered LaTeX whenever the result or template changes and we are on Step 2
+  // Fetch rendered LaTeX whenever the result or template changes and we are on Step 1 (Result)
   useEffect(() => {
-    if (step === 2 && result?.resume && !loadingProfile) {
+    if (step === 1 && result?.resume && !loadingProfile) {
       fetchLatex()
     }
   }, [step, result, selectedTemplate, loadingProfile])
@@ -76,103 +79,98 @@ export default function Generator() {
         }),
       })
       setRawLatex(texContent)
-      setPreviewStale(false)
-      // Auto-compile PDF preview after fetching LaTeX
-      await compilePreviewFromLatex(texContent)
+      setPreviewStale(true)
+      compilePreviewPdf(texContent)
     } catch (err) {
-      setError(err.message)
+      setError(`Failed to fetch LaTeX source: ${err.message}`)
     } finally {
       setFetchingLatex(false)
     }
   }
 
-  const compilePreviewFromLatex = async (latex) => {
-    if (!latex) return
+  const compilePreviewPdf = async (texString) => {
     setCompilingPreview(true)
+    setError('')
     try {
-      const blob = await apiBlob('/api/pdf/raw', {
+      const blob = await apiBlob('/api/pdf-raw', {
         method: 'POST',
-        body: JSON.stringify({ latex }),
+        body: JSON.stringify({ latex: texString }),
       })
+
       if (blob.size === 0) {
-        throw new Error('Server returned empty PDF. Check LaTeX for errors.')
+        throw new Error('Server returned empty PDF. Check your LaTeX for syntax errors.')
       }
-      // Revoke old URL
-      if (prevPdfUrlRef.current) URL.revokeObjectURL(prevPdfUrlRef.current)
+
       const url = URL.createObjectURL(blob)
+      if (prevPdfUrlRef.current) {
+        URL.revokeObjectURL(prevPdfUrlRef.current)
+      }
       prevPdfUrlRef.current = url
       setPdfPreviewUrl(url)
       setPreviewStale(false)
     } catch (err) {
-      setError(`PDF preview failed: ${err.message}`)
+      setError(`Preview Compilation Failed: ${err.message}`)
     } finally {
       setCompilingPreview(false)
     }
   }
 
-  const compilePreview = () => compilePreviewFromLatex(rawLatex)
-
-  const handleSaveProfile = async (data) => {
-    try {
-      await apiJson('/api/profile', {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      })
-      setProfile(data)
-      setStep(1)
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
   const handleGenerate = async () => {
-    if (!jd.trim()) {
-      setError('Paste a job description first')
+    if (useTailoring && !jd.trim()) {
+      setError('Please paste a job description, or disable tailoring.')
       return
     }
-    setError('')
     setLoading(true)
-    setQueueStatus('Submitting to queue...')
+    setError('')
+    setQueueStatus('Submitting to processing queue...')
+
     try {
+      // Create task
       const { task_id } = await apiJson('/api/generate', {
         method: 'POST',
-        body: JSON.stringify({ jd }),
+        body: JSON.stringify({ jd: useTailoring ? jd : "" }),
       })
-      
-      // Poll for status
-      let resultData = null
-      while (true) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        const statusData = await apiJson(`/api/generate/status/${task_id}`)
-        
-        if (statusData.status === 'queued') {
-          setQueueStatus('Waiting in queue (to prevent rate limits)...')
-        } else if (statusData.status === 'processing') {
-          setQueueStatus('Gemini is generating your tailored resume...')
-        } else if (statusData.status === 'completed') {
-          resultData = statusData.result
-          break
-        } else if (statusData.status === 'error') {
-          throw new Error(statusData.detail || 'Generation failed')
+
+      // Poll for completion
+      const poll = setInterval(async () => {
+        try {
+          const statusRes = await apiJson(`/api/generate/status/${task_id}`)
+
+          if (statusRes.status === 'processing') {
+            setQueueStatus(`Processing: ${statusRes.detail || 'In progress...'}`)
+          } else if (statusRes.status === 'completed') {
+            clearInterval(poll)
+            setResult(statusRes.result)
+            setStep(1)
+            setLoading(false)
+            setQueueStatus('')
+          } else if (statusRes.status === 'error') {
+            clearInterval(poll)
+            setError(`Generation failed: ${statusRes.detail}`)
+            setLoading(false)
+            setQueueStatus('')
+          }
+        } catch (err) {
+          clearInterval(poll)
+          setError(err.message)
+          setLoading(false)
+          setQueueStatus('')
         }
-      }
-      
-      setResult(resultData)
-      setStep(2)
+      }, 2000)
+
     } catch (err) {
       setError(err.message)
-    } finally {
       setLoading(false)
       setQueueStatus('')
     }
   }
 
-  const handleDownloadPdf = async () => {
-    if (!rawLatex) return
+  const handleDownload = async () => {
+    if (!result) return
     setDownloadingPdf(true)
     setError('')
     try {
-      const blob = await apiBlob('/api/pdf/raw', {
+      const blob = await apiBlob('/api/pdf-raw', {
         method: 'POST',
         body: JSON.stringify({ latex: rawLatex }),
       })
@@ -191,7 +189,6 @@ export default function Generator() {
 
   const steps = [
     { label: 'Profile', icon: '👤' },
-    { label: 'Job Description', icon: '📋' },
     { label: 'Result', icon: '🎯' },
   ]
 
@@ -212,7 +209,7 @@ export default function Generator() {
           <div
             key={i}
             className={`wizard-step ${step === i ? 'active' : ''} ${step > i ? 'completed' : ''}`}
-            onClick={() => { if (i <= step || (i === 2 && result)) setStep(i) }}
+            onClick={() => { if (i <= step || (i === 1 && result)) setStep(i) }}
           >
             <div className="wizard-step-number">
               {step > i ? '✓' : i + 1}
@@ -226,150 +223,179 @@ export default function Generator() {
 
       {/* Step 0: Profile */}
       {step === 0 && (
-        <div className="card">
-          <h2 className="card-title">Your Profile</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: 20 }}>
-            Fill this once. We save it and reuse for every JD.
-          </p>
-          <ProfileForm initial={profile} onSave={handleSaveProfile} />
-        </div>
-      )}
+        <>
+          <ProfileForm
+            initialData={profile}
+            onNext={(savedProfile) => {
+              setProfile(savedProfile)
+              // Don't auto-advance. Let user click 'Generate PDF' when ready.
+            }}
+          />
+          <hr style={{ margin: '32px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
 
-      {/* Step 1: JD Input */}
-      {step === 1 && (
-        <div className="card">
-          <h2 className="card-title">Paste Job Description</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: 20 }}>
-            Paste the full JD. Gemini will extract keywords, inflate your projects, and tailor everything.
-          </p>
-          <JDInput value={jd} onChange={setJd} />
-          <div className="wizard-nav">
-            <button className="btn btn-secondary" onClick={() => setStep(0)}>← Edit Profile</button>
-            <button className="btn btn-primary btn-lg" onClick={handleGenerate} disabled={loading}>
-              {loading ? '🔄 Generating...' : '⚡ Generate Resume'}
-            </button>
+          <div style={{ backgroundColor: 'var(--card-bg)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: useTailoring ? '16px' : '0' }}>
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>✨</span> Optional: Tailor to a Job Description
+                  </h3>
+                  <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setUseTailoring(!useTailoring)}
+                  >
+                      {useTailoring ? 'Disable Tailoring' : 'Enable Tailoring'}
+                  </button>
+              </div>
+
+              {useTailoring && (
+                  <div style={{ marginTop: '16px' }}>
+                      <JDInput value={jd} onChange={setJd} />
+                  </div>
+              )}
+
+              <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                 <button
+                    className="btn btn-primary btn-lg generate-btn"
+                    onClick={handleGenerate}
+                    disabled={loading || (useTailoring && !jd.trim())}
+                    style={{ width: '100%', maxWidth: '400px' }}
+                  >
+                    {loading ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="spinner" style={{ width: 16, height: 16, borderLeftColor: '#fff' }} />
+                        Generating...
+                      </span>
+                    ) : (
+                      'Generate PDF'
+                    )}
+                  </button>
+                  {queueStatus && <p className="loading-text" style={{ fontSize: '0.85rem' }}>{queueStatus}</p>}
+              </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Step 2: Result */}
-      {step === 2 && result && (
-        <div>
-          {/* ATS Score */}
-          {result.ats && (
-            <div className="card" style={{ marginBottom: 20 }}>
-              <ATSScore ats={result.ats} />
-            </div>
+      {/* Step 1: Result */}
+      {step === 1 && result && (
+        <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
+          <h2 className="step-title">3. Your Tailored Resume</h2>
+
+          {result.ats && result.ats.score !== undefined && (
+            <ATSScore score={result.ats.score} missing={result.ats.missing} />
           )}
 
-          {/* Download bar */}
-          <div className="download-bar card" style={{ marginBottom: 20, display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select
-              value={selectedTemplate}
-              onChange={(e) => setSelectedTemplate(e.target.value)}
-              className="form-input"
-              style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
-            >
-              <option value="modern.tex.j2">Modern (Chhabra Layout)</option>
-              <option value="resume.tex.j2">Classic Layout</option>
-            </select>
-
-            <button className="btn btn-primary" onClick={handleDownloadPdf} disabled={fetchingLatex || downloadingPdf}>
-              {downloadingPdf ? '⏳ Compiling PDF...' : '📄 Download PDF'}
-            </button>
-
-
-            <button className="btn btn-secondary" onClick={() => { setResult(null); setStep(1); setPdfPreviewUrl(null) }} style={{marginLeft: 'auto'}}>
-              🔄 Try Different JD
-            </button>
+          <div style={{ marginBottom: 16, display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div>
+              <label className="form-label" style={{ display: 'inline-block', marginRight: 8, marginBottom: 0 }}>Template:</label>
+              <select
+                className="form-input"
+                style={{ display: 'inline-block', width: 'auto', padding: '6px 12px' }}
+                value={selectedTemplate}
+                onChange={(e) => setSelectedTemplate(e.target.value)}
+              >
+                <option value="modern.tex.j2">Modern (Default)</option>
+                <option value="classic.tex.j2">Classic</option>
+              </select>
+            </div>
           </div>
 
-          {/* Tab switcher */}
-          <div className="result-tabs">
-            <button
-              className={`result-tab ${activeTab === 'pdf' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('pdf')
-                if (previewStale && rawLatex) compilePreview()
-              }}
-            >
-              📄 PDF Preview
-            </button>
-            <button
-              className={`result-tab ${activeTab === 'latex' ? 'active' : ''}`}
-              onClick={() => setActiveTab('latex')}
-            >
-              ✏️ LaTeX Source
-            </button>
-          </div>
-
-          {/* Tab content */}
-          <div className="card" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
-            {activeTab === 'pdf' ? (
-              <div>
-                {(fetchingLatex || compilingPreview) ? (
-                  <div style={{ textAlign: 'center', padding: '80px 0' }}>
-                    <div className="spinner" />
-                    <p className="loading-text">
-                      {fetchingLatex ? 'Generating LaTeX...' : 'Compiling PDF with pdflatex...'}
-                    </p>
-                    <p className="loading-text" style={{ fontSize: '0.8rem', marginTop: 8, color: 'var(--text-muted)' }}>
-                      This may take a few seconds
-                    </p>
-                  </div>
-                ) : pdfPreviewUrl ? (
-                  <div>
-                    {previewStale && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', marginBottom: 12, background: 'rgba(251, 191, 36, 0.08)', border: '1px solid rgba(251, 191, 36, 0.2)', borderRadius: 'var(--radius-sm)' }}>
-                        <span style={{ color: 'var(--warning)', fontSize: '0.85rem' }}>⚠️ LaTeX was edited. Preview may be outdated.</span>
-                        <button className="btn btn-primary btn-sm" onClick={compilePreview}>🔄 Recompile</button>
-                      </div>
-                    )}
-                    <iframe
-                      src={pdfPreviewUrl}
-                      style={{ width: '100%', height: '850px', border: 'none', borderRadius: '8px', background: '#fff' }}
-                      title="PDF Preview"
-                    />
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-secondary)' }}>
-                    <p>No preview available. Waiting for LaTeX compilation...</p>
-                  </div>
-                )}
+          <div className="editor-layout">
+            <div className="editor-left">
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                <button
+                  className={`btn ${activeTab === 'pdf' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                  onClick={() => setActiveTab('pdf')}
+                >
+                  PDF Preview
+                </button>
+                <button
+                  className={`btn ${activeTab === 'latex' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                  onClick={() => setActiveTab('latex')}
+                >
+                  LaTeX Source
+                </button>
               </div>
-            ) : (
-              <div>
-                <p style={{color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '10px'}}>
-                  Edit the LaTeX source directly. Changes here are used when downloading PDF or refreshing the preview.
-                </p>
-                {fetchingLatex ? (
-                  <div style={{ textAlign: 'center', padding: '20px' }}><div className="spinner" /></div>
-                ) : (
+
+              {activeTab === 'latex' && (
+                <div style={{ display: 'flex', flexDirection: 'column', height: '600px', gap: 8 }}>
                   <textarea
-                    className="form-input"
-                    style={{ width: '100%', minHeight: '700px', fontFamily: 'monospace', fontSize: '13px', lineHeight: '1.5', resize: 'vertical' }}
+                    className="form-textarea"
                     value={rawLatex}
                     onChange={(e) => {
                       setRawLatex(e.target.value)
                       setPreviewStale(true)
                     }}
+                    style={{
+                      flexGrow: 1,
+                      fontFamily: 'monospace',
+                      fontSize: '0.85rem',
+                      whiteSpace: 'pre',
+                      overflowWrap: 'normal',
+                      overflowX: 'auto'
+                    }}
+                    spellCheck="false"
                   />
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => compilePreviewPdf(rawLatex)}
+                    disabled={compilingPreview || !previewStale}
+                  >
+                    {compilingPreview ? 'Compiling...' : previewStale ? 'Recompile PDF' : 'Up to date'}
+                  </button>
+                </div>
+              )}
 
-      {/* Loading overlay */}
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-content">
-            <div className="spinner" />
-            <p className="loading-text">{queueStatus || 'Processing...'}</p>
-            <p className="loading-text" style={{ fontSize: '0.8rem', marginTop: 8, color: 'var(--text-muted)' }}>
-              This takes 5-15 seconds
-            </p>
+              {activeTab === 'pdf' && (
+                <div style={{ height: '600px', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', position: 'relative', backgroundColor: '#333' }}>
+                  {compilingPreview || fetchingLatex ? (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10 }}>
+                      <div className="spinner" />
+                      <p style={{ marginTop: 16 }}>{compilingPreview ? 'Compiling PDF...' : 'Generating LaTeX...'}</p>
+                    </div>
+                  ) : null}
+
+                  {pdfPreviewUrl ? (
+                    <iframe
+                      src={`${pdfPreviewUrl}#toolbar=0`}
+                      style={{ width: '100%', height: '100%', border: 'none' }}
+                      title="PDF Preview"
+                    />
+                  ) : (
+                    <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>No preview available.</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="editor-right">
+              <div style={{ position: 'sticky', top: 24 }}>
+                <h3 style={{ marginTop: 0, marginBottom: 16, fontSize: '1.1rem' }}>Download</h3>
+                <button
+                  className="btn btn-primary"
+                  style={{ width: '100%', marginBottom: 16 }}
+                  onClick={handleDownload}
+                  disabled={downloadingPdf || fetchingLatex || compilingPreview}
+                >
+                  {downloadingPdf ? 'Generating...' : '↓ Download Final PDF'}
+                </button>
+
+                <button
+                  className="btn btn-secondary"
+                  style={{ width: '100%' }}
+                  onClick={() => {
+                    const blob = new Blob([rawLatex], { type: 'text/plain;charset=utf-8' })
+                    downloadBlob(blob, 'resume.tex')
+                  }}
+                  disabled={!rawLatex}
+                >
+                  ↓ Download .tex source
+                </button>
+
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 24 }}>
+                  <strong>Pro tip:</strong> You can edit the LaTeX source directly to fix any minor formatting issues before downloading the final PDF.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}

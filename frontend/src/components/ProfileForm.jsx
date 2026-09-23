@@ -1,270 +1,272 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { apiJson, apiBlob, apiText } from '../api'
 
-const API = import.meta.env.VITE_API_URL || ''
-
-export default function ProfileForm({ initial, onSave }) {
+export default function ProfileForm({ initialData, onNext }) {
   const [form, setForm] = useState({
-    name: '', email: '', phone: '', linkedin: '', github: '',
-    skills: [], experience: [], education: [], projects: [],
+    name: initialData?.name || '',
+    email: initialData?.email || '',
+    phone: initialData?.phone || '',
+    linkedin: initialData?.linkedin || '',
+    github: initialData?.github || '',
+    skills: initialData?.skills || [],
+    experience: initialData?.experience || [],
+    education: initialData?.education || [],
+    projects: initialData?.projects || [],
   })
+
   const [skillInput, setSkillInput] = useState('')
   const [importing, setImporting] = useState(false)
-  const [importError, setImportError] = useState('')
-  const [showLatexInput, setShowLatexInput] = useState(false)
-  const [latexCode, setLatexCode] = useState('')
-  const fileInputRef = useRef(null)
+  const [enhancing, setEnhancing] = useState({ type: null, index: null, bulletIndex: null })
 
-  const applyImport = (data) => {
-    setForm({
-      name: data.name || '',
-      email: data.email || '',
-      phone: data.phone || '',
-      linkedin: data.linkedin || '',
-      github: data.github || '',
-      skills: data.skills || [],
-      experience: data.experience || [],
-      education: data.education || [],
-      projects: data.projects || [],
-    })
-  }
+  // Basic update
+  const update = (field, value) => setForm((p) => ({ ...p, [field]: value }))
 
-  const handlePdfImport = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImporting(true)
-    setImportError('')
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const token = localStorage.getItem('token')
-      const geminiKey = localStorage.getItem('geminiApiKey')
-      const headers = { 'Authorization': `Bearer ${token}` }
-      if (geminiKey) headers['X-Gemini-Key'] = geminiKey
-      
-      const res = await fetch(`${API}/api/profile/import-pdf`, {
-        method: 'POST',
-        headers,
-        body: formData,
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.detail || 'Import failed')
-      }
-      const data = await res.json()
-      applyImport(data)
-    } catch (err) {
-      setImportError(err.message)
-    } finally {
-      setImporting(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
-  const handleLatexImport = async () => {
-    if (!latexCode.trim()) return
-    setImporting(true)
-    setImportError('')
-    try {
-      const token = localStorage.getItem('token')
-      const geminiKey = localStorage.getItem('geminiApiKey')
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      }
-      if (geminiKey) headers['X-Gemini-Key'] = geminiKey
-
-      const res = await fetch(`${API}/api/profile/import-latex`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ latex: latexCode }),
-      })
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.detail || 'Import failed')
-      }
-      const data = await res.json()
-      applyImport(data)
-      setShowLatexInput(false)
-      setLatexCode('')
-    } catch (err) {
-      setImportError(err.message)
-    } finally {
-      setImporting(false)
-    }
-  }
-
-  useEffect(() => {
-    if (initial) {
-      setForm({
-        name: initial.name || '',
-        email: initial.email || '',
-        phone: initial.phone || '',
-        linkedin: initial.linkedin || '',
-        github: initial.github || '',
-        skills: initial.skills || [],
-        experience: initial.experience || [],
-        education: initial.education || [],
-        projects: initial.projects || [],
-      })
-    }
-  }, [initial])
-
-  const update = (key, val) => setForm((f) => ({ ...f, [key]: val }))
-
+  // Skills
   const addSkill = () => {
-    const s = skillInput.trim()
-    if (s && !form.skills.includes(s)) {
-      update('skills', [...form.skills, s])
-      setSkillInput('')
-    }
+    if (!skillInput.trim()) return
+    setForm((p) => ({ ...p, skills: [...p.skills, skillInput.trim()] }))
+    setSkillInput('')
   }
-
-  const removeSkill = (idx) => {
-    update('skills', form.skills.filter((_, i) => i !== idx))
+  const removeSkill = (i) => {
+    setForm((p) => ({ ...p, skills: p.skills.filter((_, idx) => idx !== i) }))
   }
 
   // Experience
   const addExperience = () => {
-    update('experience', [...form.experience, { title: '', company: '', start: '', end: '', bullets: [''] }])
+    setForm((p) => ({
+      ...p,
+      experience: [...p.experience, { title: '', company: '', start: '', end: '', bullets: [''] }],
+    }))
   }
-
-  const updateExp = (idx, key, val) => {
-    const copy = [...form.experience]
-    copy[idx] = { ...copy[idx], [key]: val }
-    update('experience', copy)
+  const updateExp = (i, field, value) => {
+    const newExp = [...form.experience]
+    newExp[i][field] = value
+    update('experience', newExp)
   }
-
-  const removeExp = (idx) => {
-    update('experience', form.experience.filter((_, i) => i !== idx))
+  const addExpBullet = (i) => {
+    const newExp = [...form.experience]
+    newExp[i].bullets = [...(newExp[i].bullets || []), '']
+    update('experience', newExp)
   }
-
-  const addExpBullet = (idx) => {
-    const copy = [...form.experience]
-    copy[idx].bullets = [...(copy[idx].bullets || []), '']
-    update('experience', copy)
+  const updateExpBullet = (ei, bi, val) => {
+    const newExp = [...form.experience]
+    newExp[ei].bullets[bi] = val
+    update('experience', newExp)
   }
-
-  const updateExpBullet = (expIdx, bulletIdx, val) => {
-    const copy = [...form.experience]
-    copy[expIdx].bullets[bulletIdx] = val
-    update('experience', copy)
+  const removeExpBullet = (ei, bi) => {
+    const newExp = [...form.experience]
+    newExp[ei].bullets = newExp[ei].bullets.filter((_, idx) => idx !== bi)
+    update('experience', newExp)
   }
-
-  const removeExpBullet = (expIdx, bulletIdx) => {
-    const copy = [...form.experience]
-    copy[expIdx].bullets = copy[expIdx].bullets.filter((_, i) => i !== bulletIdx)
-    update('experience', copy)
+  const removeExp = (i) => {
+    setForm((p) => ({ ...p, experience: p.experience.filter((_, idx) => idx !== i) }))
   }
 
   // Projects
   const addProject = () => {
-    update('projects', [...form.projects, { name: '', description: '', tech: [] }])
+    setForm((p) => ({
+      ...p,
+      projects: [...p.projects, { name: '', description: '', tech: [], github_url: '', demo_url: '' }],
+    }))
+  }
+  const updateProj = (i, field, value) => {
+    const newProj = [...form.projects]
+    newProj[i][field] = value
+    update('projects', newProj)
+  }
+  const removeProj = (i) => {
+    setForm((p) => ({ ...p, projects: p.projects.filter((_, idx) => idx !== i) }))
+  }
+  const moveProjUp = (i) => {
+    if (i === 0) return
+    const newProj = [...form.projects]
+    const temp = newProj[i - 1]
+    newProj[i - 1] = newProj[i]
+    newProj[i] = temp
+    update('projects', newProj)
+  }
+  const moveProjDown = (i) => {
+    if (i === form.projects.length - 1) return
+    const newProj = [...form.projects]
+    const temp = newProj[i + 1]
+    newProj[i + 1] = newProj[i]
+    newProj[i] = temp
+    update('projects', newProj)
   }
 
-  const updateProj = (idx, key, val) => {
-    const copy = [...form.projects]
-    copy[idx] = { ...copy[idx], [key]: val }
-    update('projects', copy)
-  }
-
-  const removeProj = (idx) => {
-    update('projects', form.projects.filter((_, i) => i !== idx))
-  }
-
-  const moveProjUp = (idx) => {
-    if (idx === 0) return
-    const copy = [...form.projects]
-    const temp = copy[idx - 1]
-    copy[idx - 1] = copy[idx]
-    copy[idx] = temp
-    update('projects', copy)
-  }
-
-  const moveProjDown = (idx) => {
-    if (idx === form.projects.length - 1) return
-    const copy = [...form.projects]
-    const temp = copy[idx + 1]
-    copy[idx + 1] = copy[idx]
-    copy[idx] = temp
-    update('projects', copy)
-  }
-
+  // Education
   const addEducation = () => {
-    update('education', [...form.education, { degree: '', school: '', start: '', end: '', location: '', cgpa: '' }])
+    setForm((p) => ({
+      ...p,
+      education: [...p.education, { degree: '', school: '', start: '', end: '', location: '', cgpa: '' }],
+    }))
+  }
+  const updateEdu = (i, field, value) => {
+    const newEdu = [...form.education]
+    newEdu[i][field] = value
+    update('education', newEdu)
+  }
+  const removeEdu = (i) => {
+    setForm((p) => ({ ...p, education: p.education.filter((_, idx) => idx !== i) }))
   }
 
-  const updateEdu = (idx, key, val) => {
-    const copy = [...form.education]
-    copy[idx] = { ...copy[idx], [key]: val }
-    update('education', copy)
+  // Import
+  const handlePdfUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const data = await apiJson('/api/profile/import-pdf', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+
+      const newForm = {
+        name: data.name || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        linkedin: data.linkedin || '',
+        github: data.github || '',
+        skills: data.skills || [],
+        experience: data.experience || [],
+        education: data.education || [],
+        projects: data.projects || [],
+      }
+      setForm(newForm)
+
+      const el = document.getElementById('resumeUpload')
+      if (el) el.value = ''
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setImporting(false)
+    }
   }
 
-  const removeEdu = (idx) => {
-    update('education', form.education.filter((_, i) => i !== idx))
+  const handleLatexUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true)
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const data = await apiJson('/api/profile/import-latex', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+
+      const newForm = {
+        name: data.name || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        linkedin: data.linkedin || '',
+        github: data.github || '',
+        skills: data.skills || [],
+        experience: data.experience || [],
+        education: data.education || [],
+        projects: data.projects || [],
+      }
+      setForm(newForm)
+
+      const el = document.getElementById('latexUpload')
+      if (el) el.value = ''
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  // AI Enhance
+  const handleEnhance = async (type, index, bulletIndex, currentText) => {
+      if (!currentText || !currentText.trim()) return;
+      setEnhancing({ type, index, bulletIndex });
+      try {
+          const res = await apiJson('/api/enhance-text', {
+              method: 'POST',
+              body: JSON.stringify({ text: currentText }),
+          });
+
+          if (res.enhanced_text) {
+              if (type === 'experience') {
+                  updateExpBullet(index, bulletIndex, res.enhanced_text);
+              } else if (type === 'project') {
+                  updateProj(index, 'description', res.enhanced_text);
+              }
+          }
+      } catch (err) {
+          console.error("Enhance failed:", err);
+          alert(err.message || 'Failed to enhance text');
+      } finally {
+          setEnhancing({ type: null, index: null, bulletIndex: null });
+      }
+  };
+
+  const submitForm = async (e) => {
+    e.preventDefault()
+    try {
+      const saved = await apiJson('/api/profile', {
+        method: 'PUT',
+        body: JSON.stringify(form)
+      })
+      onNext(saved)
+    } catch (err) {
+      alert(err.message)
+    }
   }
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(form) }}>
+    <form className="wizard-form" onSubmit={submitForm}>
+      <h2 className="step-title">1. Your Profile Data</h2>
+      <p className="step-desc">
+        Fill in your actual info below. Gemini will format this into a stunning resume.
+      </p>
 
-      {/* Import Section */}
-      <div className="card" style={{ marginBottom: 24, background: 'rgba(79, 140, 255, 0.04)', border: '1px dashed rgba(79, 140, 255, 0.3)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <span style={{ fontSize: '1.2rem' }}>📥</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Import from Existing Resume</div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Upload PDF or paste LaTeX — Gemini extracts your profile</div>
-          </div>
-        </div>
-
-        {importError && <div className="auth-error" style={{ marginBottom: 12 }}>{importError}</div>}
-
-        <div style={{ display: 'flex', gap: 8 }}>
+      {/* Importers */}
+      <div className="importer-section" style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative' }}>
           <input
-            ref={fileInputRef}
+            id="resumeUpload"
             type="file"
             accept=".pdf"
-            onChange={handlePdfImport}
-            style={{ display: 'none' }}
-            id="pdf-upload"
+            onChange={handlePdfUpload}
+            style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+            disabled={importing}
           />
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => fileInputRef.current?.click()}
+            className="btn btn-secondary"
             disabled={importing}
+            style={{ pointerEvents: 'none', padding: '12px 24px', borderRadius: 8 }}
           >
-            {importing ? '⏳ Parsing...' : '📄 Upload PDF'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setShowLatexInput(!showLatexInput)}
-            disabled={importing}
-          >
-            📝 Paste LaTeX
+            {importing ? '⏳ Parsing...' : '📄 Import from PDF'}
           </button>
         </div>
 
-        {showLatexInput && (
-          <div style={{ marginTop: 12 }}>
-            <textarea
-              className="form-textarea"
-              value={latexCode}
-              onChange={(e) => setLatexCode(e.target.value)}
-              placeholder="Paste your LaTeX resume code here..."
-              style={{ minHeight: 150, fontFamily: 'monospace', fontSize: '0.8rem' }}
-            />
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={handleLatexImport}
-              disabled={importing || !latexCode.trim()}
-              style={{ marginTop: 8 }}
-            >
-              {importing ? '⏳ Parsing...' : '🚀 Parse LaTeX'}
-            </button>
-          </div>
-        )}
+        {/* Removed redundant raw text section for cleaner UI */}
+
+        <div style={{ position: 'relative' }}>
+          <input
+            id="latexUpload"
+            type="file"
+            accept=".tex"
+            onChange={handleLatexUpload}
+            style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+            disabled={importing}
+          />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={importing}
+            style={{ pointerEvents: 'none', padding: '12px 24px', borderRadius: 8 }}
+          >
+            {importing ? '⏳ Parsing...' : '🚀 Parse LaTeX'}
+          </button>
+        </div>
       </div>
 
       {/* Basic Info */}
@@ -318,7 +320,7 @@ export default function ProfileForm({ initial, onSave }) {
 
       {/* Experience */}
       <div className="form-group">
-        <label className="form-label">Work Experience</label>
+        <label className="form-label">WORK EXPERIENCE</label>
         {form.experience.map((exp, idx) => (
           <div className="entry-card" key={idx}>
             <div className="entry-header">
@@ -341,17 +343,31 @@ export default function ProfileForm({ initial, onSave }) {
                 <input className="form-input" value={exp.end} onChange={(e) => updateExp(idx, 'end', e.target.value)} placeholder="End (e.g., Present)" />
               </div>
             </div>
-            <label className="form-label" style={{ marginTop: 8 }}>Bullets (honest descriptions, Gemini will inflate)</label>
+            <label className="form-label" style={{ marginTop: 8 }}>EXPERIENCE BULLETS</label>
             <div className="bullets-list">
               {(exp.bullets || []).map((b, bi) => (
-                <div className="bullet-row" key={bi}>
-                  <input
+                <div className="bullet-row" key={bi} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                  <textarea
                     className="form-input"
                     value={b}
                     onChange={(e) => updateExpBullet(idx, bi, e.target.value)}
                     placeholder="What you actually did"
+                    rows={2}
+                    style={{ flexGrow: 1, resize: 'vertical' }}
                   />
-                  <button type="button" className="btn btn-danger btn-sm" onClick={() => removeExpBullet(idx, bi)}>×</button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                     <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleEnhance('experience', idx, bi, b)}
+                        disabled={enhancing.type !== null}
+                        title="Enhance with AI"
+                        style={{ padding: '4px 8px', width: '32px' }}
+                     >
+                        {enhancing.type === 'experience' && enhancing.index === idx && enhancing.bulletIndex === bi ? '⌛' : '✨'}
+                     </button>
+                     <button type="button" className="btn btn-danger btn-sm" onClick={() => removeExpBullet(idx, bi)} style={{ padding: '4px 8px', width: '32px' }}>×</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -363,7 +379,7 @@ export default function ProfileForm({ initial, onSave }) {
 
       {/* Projects */}
       <div className="form-group">
-        <label className="form-label">Projects (honest descriptions — Gemini will make them sound FAANG-level)</label>
+        <label className="form-label">Projects</label>
         {form.projects.map((proj, idx) => (
           <div className="entry-card" key={idx}>
             <div className="entry-header">
@@ -386,13 +402,26 @@ export default function ProfileForm({ initial, onSave }) {
               </div>
             </div>
             <div className="form-group">
-              <textarea
-                className="form-textarea"
-                value={proj.description}
-                onChange={(e) => updateProj(idx, 'description', e.target.value)}
-                placeholder="Honestly describe what the project does. e.g., 'A chatbot using OpenAI API for customer support' — Gemini will turn this into enterprise gold."
-                rows={3}
-              />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                    <textarea
+                        className="form-textarea"
+                        value={proj.description}
+                        onChange={(e) => updateProj(idx, 'description', e.target.value)}
+                        placeholder="Honestly describe what the project does. e.g., 'A chatbot using OpenAI API for customer support' — Gemini will turn this into enterprise gold."
+                        rows={3}
+                        style={{ flexGrow: 1 }}
+                    />
+                     <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleEnhance('project', idx, null, proj.description)}
+                        disabled={enhancing.type !== null}
+                        title="Enhance with AI"
+                        style={{ padding: '4px 8px', width: '32px', alignSelf: 'stretch' }}
+                     >
+                        {enhancing.type === 'project' && enhancing.index === idx ? '⌛' : '✨'}
+                     </button>
+                </div>
             </div>
             <div className="form-group">
               <input
