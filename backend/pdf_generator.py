@@ -16,29 +16,34 @@ _tex_env = Environment(
 )
 
 
+import re
+
+# Pre-compiled regex and static replacement tuple to optimize LaTeX string escaping performance
+_BOLD_PATTERN = re.compile(r'\*\*(.*?)\*\*')
+_LATEX_REPLACEMENTS = (
+    ("\\", r"\textbackslash{}"),
+    ("&", r"\&"),
+    ("%", r"\%"),
+    ("$", r"\$"),
+    ("#", r"\#"),
+    ("_", r"\_"),
+    ("{", r"\{"),
+    ("}", r"\}"),
+    ("~", r"\textasciitilde{}"),
+    ("^", r"\textasciicircum{}"),
+)
+
+
 def _escape_latex(text: str) -> str:
     """Escape special LaTeX characters in user-provided text."""
     if not isinstance(text, str):
         return text
-    replacements = [
-        ("\\", r"\textbackslash{}"),
-        ("&", r"\&"),
-        ("%", r"\%"),
-        ("$", r"\$"),
-        ("#", r"\#"),
-        ("_", r"\_"),
-        ("{", r"\{"),
-        ("}", r"\}"),
-        ("~", r"\textasciitilde{}"),
-        ("^", r"\textasciicircum{}"),
-    ]
-    for old, new in replacements:
+    for old, new in _LATEX_REPLACEMENTS:
         text = text.replace(old, new)
-        
-    import re
-    # Convert Markdown **bold** to LaTeX \textbf{bold}
-    text = re.sub(r'\*\*(.*?)\*\*', r'\\textbf{\1}', text)
-    
+
+    # Convert Markdown **bold** to LaTeX \textbf{bold} using pre-compiled pattern
+    text = _BOLD_PATTERN.sub(r'\\textbf{\1}', text)
+
     return text
 
 
