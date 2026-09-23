@@ -1,7 +1,7 @@
 export default function JDInput({ value, onChange }) {
   return (
     <div className="form-group">
-      <label className="form-label">Job Description</label>
+      <label className="form-label" htmlFor="jd-textarea">Job Description</label>
       <textarea
         id="jd-textarea"
         className="form-textarea"

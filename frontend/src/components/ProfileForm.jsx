@@ -310,7 +310,14 @@ export default function ProfileForm({ initial, onSave }) {
           {form.skills.map((s, i) => (
             <span className="tag" key={i}>
               {s}
-              <span className="tag-remove" onClick={() => removeSkill(i)}>×</span>
+              <button
+                type="button"
+                className="tag-remove"
+                onClick={() => removeSkill(i)}
+                aria-label={`Remove skill ${s}`}
+              >
+                ×
+              </button>
             </span>
           ))}
         </div>
@@ -351,7 +358,7 @@ export default function ProfileForm({ initial, onSave }) {
                     onChange={(e) => updateExpBullet(idx, bi, e.target.value)}
                     placeholder="What you actually did"
                   />
-                  <button type="button" className="btn btn-danger btn-sm" onClick={() => removeExpBullet(idx, bi)}>×</button>
+                  <button type="button" className="btn btn-danger btn-sm" onClick={() => removeExpBullet(idx, bi)} aria-label="Remove bullet point">×</button>
                 </div>
               ))}
             </div>
@@ -369,8 +376,8 @@ export default function ProfileForm({ initial, onSave }) {
             <div className="entry-header">
               <span className="entry-number">Project #{idx + 1}</span>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => moveProjUp(idx)} disabled={idx === 0}>↑</button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => moveProjDown(idx)} disabled={idx === form.projects.length - 1}>↓</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => moveProjUp(idx)} disabled={idx === 0} aria-label={`Move project ${proj.name || idx + 1} up`}>↑</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => moveProjDown(idx)} disabled={idx === form.projects.length - 1} aria-label={`Move project ${proj.name || idx + 1} down`}>↓</button>
                 <button type="button" className="btn btn-danger btn-sm" onClick={() => removeProj(idx)}>Remove</button>
               </div>
             </div>
