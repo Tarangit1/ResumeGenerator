@@ -91,3 +91,39 @@ def test_get_and_update_profile():
     assert response.status_code == 200
     assert response.json()["name"] == "Test User"
     assert response.json()["skills"] == ["Python"]
+
+
+def test_invalid_template_name():
+    login_response = client.post("/api/auth/login", json={"email": "test@example.com", "password": "password123"})
+    token = login_response.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    payload = {
+        "resume": {},
+        "name": "Test User",
+        "template_name": "../../../etc/passwd"
+    }
+    response = client.post("/api/tex", json=payload, headers=headers)
+    assert response.status_code == 400
+    assert "Invalid or disallowed template name" in response.json()["detail"]
+
+
+def test_latex_url_injection():
+    login_response = client.post("/api/auth/login", json={"email": "test@example.com", "password": "password123"})
+    token = login_response.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    payload = {
+        "resume": {},
+        "name": "Test User",
+        "linkedin": "https://linkedin.com/in/user} \\input{/etc/passwd} %",
+        "github": "https://github.com/user#section",
+        "template_name": "resume.tex.j2"
+    }
+    response = client.post("/api/tex", json=payload, headers=headers)
+    assert response.status_code == 200
+    tex_content = response.text
+    # Verify LaTeX control chars are escaped in the URL
+    assert r"\} \textbackslash{}input\{/etc/passwd\} \%" in tex_content
+    assert r"https://linkedin.com/in/user} \input" not in tex_content
+    assert r"\#" in tex_content

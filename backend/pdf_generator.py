@@ -16,6 +16,26 @@ _tex_env = Environment(
 )
 
 
+import re
+
+
+def _escape_url_latex(url: str) -> str:
+    """Safely escape URL strings for use in LaTeX \\href{url}{text}."""
+    if not isinstance(url, str):
+        return ""
+    # Remove newlines and carriage returns to prevent multi-line injection
+    url = re.sub(r'[\r\n]', '', url.strip())
+    # Single-pass regex replacement to prevent order-dependent double escaping
+    mapping = {
+        "\\": r"\textbackslash{}",
+        "%": r"\%",
+        "#": r"\#",
+        "{": r"\{",
+        "}": r"\}",
+    }
+    return re.sub(r'[\\%#{}]', lambda m: mapping[m.group(0)], url)
+
+
 def _escape_latex(text: str) -> str:
     """Escape special LaTeX characters in user-provided text."""
     if not isinstance(text, str):
@@ -74,8 +94,8 @@ async def generate_pdf(
     safe_name = _escape_latex(profile_name)
     safe_email = _escape_latex(profile_email)
     safe_phone = _escape_latex(profile_phone)
-    safe_linkedin = profile_linkedin  # URLs: keep raw for \href
-    safe_github = profile_github      # URLs: keep raw for \href
+    safe_linkedin = _escape_url_latex(profile_linkedin)
+    safe_github = _escape_url_latex(profile_github)
     safe_hide_keywords = [_escape_latex(k) for k in (hide_keywords or [])]
 
     # Render .tex from Jinja2 template

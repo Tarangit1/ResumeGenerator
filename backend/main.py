@@ -197,6 +197,9 @@ class GenerateRequest(BaseModel):
     jd: str
 
 
+ALLOWED_TEMPLATES = {"resume.tex.j2", "modern.tex.j2"}
+
+
 class PdfRequest(BaseModel):
     resume: dict
     name: str = ""
@@ -434,6 +437,8 @@ async def get_generate_status(task_id: str):
 
 @app.post("/api/pdf")
 async def gen_pdf(req: PdfRequest, user: User = Depends(get_current_user)):
+    if req.template_name not in ALLOWED_TEMPLATES:
+        raise HTTPException(status_code=400, detail="Invalid or disallowed template name")
     logger.info(f"PDF generation requested by user {user.id}, template={req.template_name}")
     try:
         pdf_bytes = await generate_pdf(
@@ -459,15 +464,17 @@ async def gen_pdf(req: PdfRequest, user: User = Depends(get_current_user)):
 
 @app.post("/api/tex")
 def gen_tex(req: PdfRequest, user: User = Depends(get_current_user)):
-    from pdf_generator import _escape_dict, _escape_latex
+    if req.template_name not in ALLOWED_TEMPLATES:
+        raise HTTPException(status_code=400, detail="Invalid or disallowed template name")
+    from pdf_generator import _escape_dict, _escape_latex, _escape_url_latex
     template = tex_env.get_template(req.template_name)
 
     safe_resume = _escape_dict(req.resume)
     safe_name = _escape_latex(req.name)
     safe_email = _escape_latex(req.email)
     safe_phone = _escape_latex(req.phone)
-    safe_linkedin = req.linkedin  # URLs: keep raw for \href
-    safe_github = req.github      # URLs: keep raw for \href
+    safe_linkedin = _escape_url_latex(req.linkedin)
+    safe_github = _escape_url_latex(req.github)
     safe_hide_keywords = [_escape_latex(k) for k in (req.hide_keywords or [])]
 
     tex_content = template.render(
