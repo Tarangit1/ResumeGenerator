@@ -48,12 +48,12 @@ async def worker_task():
         user_id = task["user_id"]
         x_gemini_key = task["x_gemini_key"]
         
-        job_status[task_id] = {"status": "processing"}
+        job_status[task_id] = {"status": "processing", "user_id": user_id}
         db = SessionLocal()
         try:
             profile = db.query(Profile).filter(Profile.user_id == user_id).first()
             if not profile:
-                job_status[task_id] = {"status": "error", "detail": "Fill your profile first"}
+                job_status[task_id] = {"status": "error", "user_id": user_id, "detail": "Fill your profile first"}
                 continue
             
             profile_data = {
@@ -101,13 +101,15 @@ async def worker_task():
             
             job_status[task_id] = {
                 "status": "completed",
+                "user_id": user_id,
                 "result": {
                     "resume": resume,
                     "ats": ats,
                 }
             }
         except Exception as e:
-            job_status[task_id] = {"status": "error", "detail": str(e)}
+            logger.error(f"Task {task_id} failed: {e}")
+            job_status[task_id] = {"status": "error", "user_id": user_id, "detail": "AI Processing Error"}
         finally:
             db.close()
             generation_queue.task_done()
@@ -411,7 +413,7 @@ async def generate(
         raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header. Please add your key in the dashboard.")
 
     task_id = str(uuid.uuid4())
-    job_status[task_id] = {"status": "queued"}
+    job_status[task_id] = {"status": "queued", "user_id": user.id}
     
     await generation_queue.put({
         "task_id": task_id,
@@ -423,10 +425,15 @@ async def generate(
     return {"task_id": task_id}
 
 @app.get("/api/generate/status/{task_id}")
-async def get_generate_status(task_id: str):
+async def get_generate_status(
+    task_id: str,
+    user: User = Depends(get_current_user)
+):
     if task_id not in job_status:
         raise HTTPException(status_code=404, detail="Task not found")
     status_data = job_status[task_id]
+    if status_data.get("user_id") != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     if status_data["status"] == "error":
         raise HTTPException(status_code=500, detail=status_data.get("detail", "AI Processing Error"))
     return status_data

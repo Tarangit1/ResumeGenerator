@@ -91,3 +91,30 @@ def test_get_and_update_profile():
     assert response.status_code == 200
     assert response.json()["name"] == "Test User"
     assert response.json()["skills"] == ["Python"]
+
+def test_generate_status_security():
+    from main import job_status
+
+    # Register second user
+    client.post("/api/auth/register", json={"email": "other@example.com", "password": "password123"})
+    login_user1 = client.post("/api/auth/login", json={"email": "test@example.com", "password": "password123"}).json()
+    login_user2 = client.post("/api/auth/login", json={"email": "other@example.com", "password": "password123"}).json()
+
+    user1_headers = {"Authorization": f"Bearer {login_user1['token']}"}
+    user2_headers = {"Authorization": f"Bearer {login_user2['token']}"}
+
+    task_id = "test-task-uuid-123"
+    job_status[task_id] = {"status": "queued", "user_id": 1}  # User 1 ID
+
+    # 1. Unauthenticated request should fail (401)
+    res_unauth = client.get(f"/api/generate/status/{task_id}")
+    assert res_unauth.status_code == 401
+
+    # 2. User 2 trying to access User 1's task should be forbidden (403)
+    res_forbidden = client.get(f"/api/generate/status/{task_id}", headers=user2_headers)
+    assert res_forbidden.status_code == 403
+
+    # 3. User 1 accessing own task status should succeed (200)
+    res_authorized = client.get(f"/api/generate/status/{task_id}", headers=user1_headers)
+    assert res_authorized.status_code == 200
+    assert res_authorized.json()["status"] == "queued"
