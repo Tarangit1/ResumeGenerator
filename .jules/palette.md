@@ -1,0 +1,3 @@
+## 2025-05-18 - Keyboard Accessibility & ARIA Labels in Tag Lists and Icon Buttons
+**Learning:** Interactive removal controls rendered as non-semantic `<span>` elements (e.g. tag removal `×`) cannot be focused or triggered via keyboard navigation, creating an insurmountable barrier for screen reader and keyboard users. Icon-only buttons without `aria-label`s are unannounced or vaguely announced by assistive technology.
+**Action:** Replace `<span>` controls with `<button type="button">` styled appropriately with button CSS resets, and always add explicit `aria-label` attributes to icon-only buttons (`↑`, `↓`, `×`).
