@@ -310,7 +310,14 @@ export default function ProfileForm({ initial, onSave }) {
           {form.skills.map((s, i) => (
             <span className="tag" key={i}>
               {s}
-              <span className="tag-remove" onClick={() => removeSkill(i)}>×</span>
+              <button
+                type="button"
+                className="tag-remove"
+                aria-label={`Remove skill ${s}`}
+                onClick={() => removeSkill(i)}
+              >
+                ×
+              </button>
             </span>
           ))}
         </div>
@@ -323,7 +330,7 @@ export default function ProfileForm({ initial, onSave }) {
           <div className="entry-card" key={idx}>
             <div className="entry-header">
               <span className="entry-number">Experience #{idx + 1}</span>
-              <button type="button" className="btn btn-danger btn-sm" onClick={() => removeExp(idx)}>Remove</button>
+              <button type="button" className="btn btn-danger btn-sm" onClick={() => removeExp(idx)} aria-label={`Remove experience ${idx + 1}`}>Remove</button>
             </div>
             <div className="form-row">
               <div className="form-group">
@@ -351,7 +358,7 @@ export default function ProfileForm({ initial, onSave }) {
                     onChange={(e) => updateExpBullet(idx, bi, e.target.value)}
                     placeholder="What you actually did"
                   />
-                  <button type="button" className="btn btn-danger btn-sm" onClick={() => removeExpBullet(idx, bi)}>×</button>
+                  <button type="button" className="btn btn-danger btn-sm" onClick={() => removeExpBullet(idx, bi)} aria-label={`Remove bullet ${bi + 1} from experience ${idx + 1}`}>×</button>
                 </div>
               ))}
             </div>
@@ -369,9 +376,9 @@ export default function ProfileForm({ initial, onSave }) {
             <div className="entry-header">
               <span className="entry-number">Project #{idx + 1}</span>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => moveProjUp(idx)} disabled={idx === 0}>↑</button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => moveProjDown(idx)} disabled={idx === form.projects.length - 1}>↓</button>
-                <button type="button" className="btn btn-danger btn-sm" onClick={() => removeProj(idx)}>Remove</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => moveProjUp(idx)} disabled={idx === 0} aria-label={`Move project ${idx + 1} up`}>↑</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => moveProjDown(idx)} disabled={idx === form.projects.length - 1} aria-label={`Move project ${idx + 1} down`}>↓</button>
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => removeProj(idx)} aria-label={`Remove project ${idx + 1}`}>Remove</button>
               </div>
             </div>
             <div className="form-group">
@@ -414,7 +421,7 @@ export default function ProfileForm({ initial, onSave }) {
           <div className="entry-card" key={idx}>
             <div className="entry-header">
               <span className="entry-number">Education #{idx + 1}</span>
-              <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEdu(idx)}>Remove</button>
+              <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEdu(idx)} aria-label={`Remove education ${idx + 1}`}>Remove</button>
             </div>
             <div className="form-row">
               <div className="form-group">

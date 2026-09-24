@@ -207,19 +207,32 @@ export default function Generator() {
   return (
     <div>
       {/* Wizard Steps */}
-      <div className="wizard-steps">
-        {steps.map((s, i) => (
-          <div
-            key={i}
-            className={`wizard-step ${step === i ? 'active' : ''} ${step > i ? 'completed' : ''}`}
-            onClick={() => { if (i <= step || (i === 2 && result)) setStep(i) }}
-          >
-            <div className="wizard-step-number">
-              {step > i ? '✓' : i + 1}
+      <div className="wizard-steps" role="navigation" aria-label="Generator Steps">
+        {steps.map((s, i) => {
+          const isNavigable = i <= step || (i === 2 && result)
+          return (
+            <div
+              key={i}
+              role="button"
+              tabIndex={isNavigable ? 0 : -1}
+              aria-current={step === i ? 'step' : undefined}
+              aria-label={`Step ${i + 1}: ${s.label}${step > i ? ', completed' : ''}`}
+              className={`wizard-step ${step === i ? 'active' : ''} ${step > i ? 'completed' : ''}`}
+              onClick={() => { if (isNavigable) setStep(i) }}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && isNavigable) {
+                  e.preventDefault()
+                  setStep(i)
+                }
+              }}
+            >
+              <div className="wizard-step-number" aria-hidden="true">
+                {step > i ? '✓' : i + 1}
+              </div>
+              <span className="wizard-step-label">{s.icon} {s.label}</span>
             </div>
-            <span className="wizard-step-label">{s.icon} {s.label}</span>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {error && <div className="auth-error" style={{ marginBottom: 16 }}>{error}</div>}
@@ -267,6 +280,7 @@ export default function Generator() {
             <select
               value={selectedTemplate}
               onChange={(e) => setSelectedTemplate(e.target.value)}
+              aria-label="Select resume template"
               className="form-input"
               style={{ width: 'auto', padding: '8px 12px', margin: 0 }}
             >
@@ -285,8 +299,10 @@ export default function Generator() {
           </div>
 
           {/* Tab switcher */}
-          <div className="result-tabs">
+          <div className="result-tabs" role="tablist" aria-label="Resume view options">
             <button
+              role="tab"
+              aria-selected={activeTab === 'pdf'}
               className={`result-tab ${activeTab === 'pdf' ? 'active' : ''}`}
               onClick={() => {
                 setActiveTab('pdf')
@@ -296,6 +312,8 @@ export default function Generator() {
               📄 PDF Preview
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === 'latex'}
               className={`result-tab ${activeTab === 'latex' ? 'active' : ''}`}
               onClick={() => setActiveTab('latex')}
             >
