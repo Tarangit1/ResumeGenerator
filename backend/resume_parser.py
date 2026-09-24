@@ -4,7 +4,7 @@ import fitz  # pymupdf
 from openai import AsyncOpenAI
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-MODEL_ID = "deepseek-ai/deepseek-v4.1-flash"
+DEFAULT_MODEL_ID = "nvidia/nemotron-3.5-lightning-30b-a3b"
 
 PARSE_PROMPT = """You are a resume parser. Extract structured profile data from the following resume content.
 
@@ -55,9 +55,10 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     return text
 
 
-async def parse_resume(content: str) -> dict:
+async def parse_resume(content: str, model_id: str | None = None) -> dict:
     """Use NVIDIA NIM to parse resume text/LaTeX into structured profile data."""
     api_key = os.environ["NVIDIA_API_KEY"]
+    model = model_id or os.environ.get("NVIDIA_MODEL_ID", DEFAULT_MODEL_ID)
     client = AsyncOpenAI(base_url=NVIDIA_BASE_URL, api_key=api_key)
 
     user_prompt = f"""
@@ -67,7 +68,7 @@ async def parse_resume(content: str) -> dict:
 Parse this resume and extract the structured profile data. Return ONLY valid JSON.
 """
     response = await client.chat.completions.create(
-        model=MODEL_ID,
+        model=model,
         messages=[
             {"role": "system", "content": PARSE_PROMPT},
             {"role": "user", "content": user_prompt},

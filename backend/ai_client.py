@@ -4,7 +4,11 @@ import os
 from openai import AsyncOpenAI
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-MODEL_ID = "deepseek-ai/deepseek-v4.1-flash"
+DEFAULT_MODEL_ID = "nvidia/nemotron-3.5-lightning-30b-a3b"
+
+def _get_model() -> str:
+    """Return model ID — env var overrides default."""
+    return os.environ.get("NVIDIA_MODEL_ID", DEFAULT_MODEL_ID)
 
 SYSTEM_PROMPT = """You are an elite technical resume writer. Your goal is to make candidates irresistible to ATS systems and hiring managers.
 
@@ -83,9 +87,10 @@ def _make_client() -> AsyncOpenAI:
     )
 
 
-async def tailor_resume(profile: dict, jd: str) -> dict:
+async def tailor_resume(profile: dict, jd: str, model_id: str | None = None) -> dict:
     """Send profile + JD to NVIDIA NIM, get back tailored resume JSON."""
     client = _make_client()
+    model = model_id or _get_model()
     prompt = f"""
 ## CANDIDATE PROFILE:
 {json.dumps(profile, indent=2)}
@@ -102,7 +107,7 @@ Generate an optimized, enterprise-level resume strictly in matching JSON structu
     for attempt in range(max_retries):
         try:
             response = await client.chat.completions.create(
-                model=MODEL_ID,
+                model=model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},

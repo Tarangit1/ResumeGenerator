@@ -10,6 +10,8 @@ async function apiFetch(path, options = {}) {
   }
 
   if (token) headers['Authorization'] = `Bearer ${token}`
+  const modelId = localStorage.getItem('nvidiaModelId')
+  if (modelId) headers['X-Model-Id'] = modelId
 
   const res = await fetch(`${API}${path}`, { ...options, headers })
 
