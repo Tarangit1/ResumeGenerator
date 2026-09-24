@@ -132,21 +132,25 @@ export default function Generator() {
     }
     setError('')
     setLoading(true)
-    setQueueStatus('Submitting to queue...')
+    setQueueStatus('Submitting...')
     try {
       const { task_id } = await apiJson('/api/generate', {
         method: 'POST',
         body: JSON.stringify({ jd }),
       })
-      
-      // Poll for status
+
+      // Poll for status — timeout after 120s
       let resultData = null
+      const deadline = Date.now() + 120_000
       while (true) {
+        if (Date.now() > deadline) {
+          throw new Error('Generation timed out after 2 minutes. Try again or switch to a faster model.')
+        }
         await new Promise(resolve => setTimeout(resolve, 2000))
         const statusData = await apiJson(`/api/generate/status/${task_id}`)
-        
+
         if (statusData.status === 'queued') {
-          setQueueStatus('Waiting in queue (to prevent rate limits)...')
+          setQueueStatus('Queued...')
         } else if (statusData.status === 'processing') {
           setQueueStatus('AI is generating your tailored resume...')
         } else if (statusData.status === 'completed') {
@@ -156,7 +160,7 @@ export default function Generator() {
           throw new Error(statusData.detail || 'Generation failed')
         }
       }
-      
+
       setResult(resultData)
       setStep(2)
     } catch (err) {

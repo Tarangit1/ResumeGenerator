@@ -106,34 +106,56 @@ Generate an optimized, enterprise-level resume strictly in matching JSON structu
 
     for attempt in range(max_retries):
         try:
-            response = await client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.7,
-                max_tokens=4096,
+            response = await asyncio.wait_for(
+                client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.7,
+                    max_tokens=4096,
+                ),
+                timeout=90.0,
             )
 
-            text = response.choices[0].message.content.strip()
-            # Strip markdown code fences if model wraps them
+            text = response.choices[0].message.content
+            if not text or not text.strip():
+                raise ValueError(f"Model returned empty response (attempt {attempt + 1})")
+            text = text.strip()
+
+            # Strip markdown code fences (```json ... ``` or ``` ... ```)
             if text.startswith("```"):
-                text = text.split("\n", 1)[1]
-                if text.endswith("```"):
-                    text = text[:-3]
-                text = text.strip()
+                lines = text.split("\n")
+                # Remove first line (```json or ```) and last ``` if present
+                inner = lines[1:] if len(lines) > 1 else lines
+                if inner and inner[-1].strip() == "```":
+                    inner = inner[:-1]
+                text = "\n".join(inner).strip()
+
+            # Find the first { to skip any leading prose the model might add
+            brace_idx = text.find("{")
+            if brace_idx > 0:
+                text = text[brace_idx:]
 
             return json.loads(text)
 
+        except (ValueError, json.JSONDecodeError) as e:
+            if attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)
+                print(f"Model returned bad/empty JSON, retrying in {delay}s: {e}")
+                await asyncio.sleep(delay)
+            else:
+                raise RuntimeError(f"Model failed to return valid JSON after {max_retries} attempts: {e}")
         except Exception as e:
             err_str = str(e)
-            if attempt < max_retries - 1 and any(code in err_str for code in ["503", "429", "rate"]):
+            if attempt < max_retries - 1 and any(code in err_str for code in ["503", "429", "rate", "timeout"]):
                 delay = base_delay * (2 ** attempt)
-                print(f"NVIDIA API rate limited/unavailable. Retrying in {delay} seconds... ({e})")
+                print(f"NVIDIA API error, retrying in {delay}s: {e}")
                 await asyncio.sleep(delay)
             else:
                 raise e
+
 
 
 async def get_embedding(text: str) -> list:
