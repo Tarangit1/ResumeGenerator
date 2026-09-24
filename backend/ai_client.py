@@ -4,7 +4,7 @@ import os
 from openai import AsyncOpenAI
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-MODEL_ID = "meta/llama-3.3-70b-instruct"
+MODEL_ID = "deepseek-ai/deepseek-v4.1-flash"
 
 SYSTEM_PROMPT = """You are an elite technical resume writer. Your goal is to make candidates irresistible to ATS systems and hiring managers.
 
