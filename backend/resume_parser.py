@@ -4,7 +4,7 @@ import fitz  # pymupdf
 from openai import AsyncOpenAI
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-DEFAULT_MODEL_ID = "nvidia/nemotron-3.5-lightning-30b-a3b"
+DEFAULT_MODEL_ID = "meta/llama-3.2-11b-vision-instruct"
 
 PARSE_PROMPT = """You are a resume parser. Extract structured profile data from the following resume content.
 
@@ -67,21 +67,35 @@ async def parse_resume(content: str, model_id: str | None = None) -> dict:
 
 Parse this resume and extract the structured profile data. Return ONLY valid JSON.
 """
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": PARSE_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.2,
-        max_tokens=2048,
-    )
+    try:
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": PARSE_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.2,
+            max_tokens=2048,
+            response_format={"type": "json_object"},
+        )
+    except Exception as rf_err:
+        if "response_format" in str(rf_err).lower() or "400" in str(rf_err):
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": PARSE_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.2,
+                max_tokens=2048,
+            )
+        else:
+            raise rf_err
 
     text = response.choices[0].message.content.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
+    brace_start = text.find("{")
+    brace_end = text.rfind("}")
+    if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
+        text = text[brace_start:brace_end + 1]
 
-    return json.loads(text)
+    return json.loads(text, strict=False)

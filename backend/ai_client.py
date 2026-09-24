@@ -4,7 +4,7 @@ import os
 from openai import AsyncOpenAI
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-DEFAULT_MODEL_ID = "nvidia/nemotron-3.5-lightning-30b-a3b"
+DEFAULT_MODEL_ID = "meta/llama-3.2-11b-vision-instruct"
 
 def _get_model() -> str:
     """Return model ID — env var overrides default."""
@@ -106,39 +106,49 @@ Generate an optimized, enterprise-level resume strictly in matching JSON structu
 
     for attempt in range(max_retries):
         try:
-            response = await asyncio.wait_for(
-                client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": prompt},
-                    ],
-                    temperature=0.7,
-                    max_tokens=4096,
-                ),
-                timeout=90.0,
-            )
+            try:
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": prompt},
+                        ],
+                        temperature=0.7,
+                        max_tokens=4096,
+                        response_format={"type": "json_object"},
+                    ),
+                    timeout=90.0,
+                )
+            except Exception as rf_err:
+                if "response_format" in str(rf_err).lower() or "400" in str(rf_err):
+                    response = await asyncio.wait_for(
+                        client.chat.completions.create(
+                            model=model,
+                            messages=[
+                                {"role": "system", "content": SYSTEM_PROMPT},
+                                {"role": "user", "content": prompt},
+                            ],
+                            temperature=0.7,
+                            max_tokens=4096,
+                        ),
+                        timeout=90.0,
+                    )
+                else:
+                    raise rf_err
 
             text = response.choices[0].message.content
             if not text or not text.strip():
                 raise ValueError(f"Model returned empty response (attempt {attempt + 1})")
             text = text.strip()
 
-            # Strip markdown code fences (```json ... ``` or ``` ... ```)
-            if text.startswith("```"):
-                lines = text.split("\n")
-                # Remove first line (```json or ```) and last ``` if present
-                inner = lines[1:] if len(lines) > 1 else lines
-                if inner and inner[-1].strip() == "```":
-                    inner = inner[:-1]
-                text = "\n".join(inner).strip()
+            # Find first { and last } to isolate JSON object cleanly
+            brace_start = text.find("{")
+            brace_end = text.rfind("}")
+            if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
+                text = text[brace_start:brace_end + 1]
 
-            # Find the first { to skip any leading prose the model might add
-            brace_idx = text.find("{")
-            if brace_idx > 0:
-                text = text[brace_idx:]
-
-            return json.loads(text)
+            return json.loads(text, strict=False)
 
         except (ValueError, json.JSONDecodeError) as e:
             if attempt < max_retries - 1:

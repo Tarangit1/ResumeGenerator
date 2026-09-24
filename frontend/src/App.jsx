@@ -6,7 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Generator from './pages/Generator'
 
 const AuthContext = createContext(null)
-const DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning-30b-a3b'
+const DEFAULT_MODEL = 'meta/llama-3.2-11b-vision-instruct'
 const API = import.meta.env.VITE_API_URL || ''
 
 export function useAuth() {
@@ -63,6 +63,7 @@ function ModelSettingsModal({ onClose }) {
 
   const handleReset = () => {
     setModelInput(DEFAULT_MODEL)
+    localStorage.removeItem('nvidiaModelId')
     setTestResult(null)
   }
 
