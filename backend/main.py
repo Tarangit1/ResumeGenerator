@@ -17,7 +17,7 @@ logger = logging.getLogger("resumeforge")
 from database import engine, get_db, Base
 from models import User, Profile, ResumeHistory, Template
 from auth import hash_password, verify_password, create_token, get_current_user
-from gemini import tailor_resume
+from ai_client import tailor_resume, get_embedding
 from ats_scorer import score_resume
 from pdf_generator import generate_pdf
 from resume_parser import extract_text_from_pdf, parse_resume
@@ -38,7 +38,7 @@ def cosine_similarity(v1, v2):
 
 async def worker_task():
     from database import SessionLocal
-    from gemini import get_embedding, tailor_resume
+    from ai_client import get_embedding, tailor_resume
     from ats_scorer import score_resume
     
     while True:
@@ -46,7 +46,6 @@ async def worker_task():
         task_id = task["task_id"]
         req = task["req"]
         user_id = task["user_id"]
-        x_gemini_key = task["x_gemini_key"]
         
         job_status[task_id] = {"status": "processing"}
         db = SessionLocal()
@@ -67,7 +66,7 @@ async def worker_task():
                 "projects": profile.projects or [],
             }
             
-            jd_embed = await get_embedding(req.jd, x_gemini_key)
+            jd_embed = await get_embedding(req.jd)
             
             records = db.query(ResumeHistory).filter(ResumeHistory.user_id == user_id).order_by(ResumeHistory.created_at.desc()).limit(20).all()
             matched_resume = None
@@ -86,7 +85,7 @@ async def worker_task():
                 resume = matched_resume
                 ats = matched_ats
             else:
-                resume = await tailor_resume(profile_data, req.jd, x_gemini_key)
+                resume = await tailor_resume(profile_data, req.jd)
                 ats = score_resume(resume, req.jd)
                 
                 history = ResumeHistory(
@@ -111,7 +110,7 @@ async def worker_task():
         finally:
             db.close()
             generation_queue.task_done()
-            await asyncio.sleep(4.0) # 4 second delay to protect Gemini rate limits
+            await asyncio.sleep(4.0)  # 4 second delay to protect NVIDIA rate limits
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -358,12 +357,9 @@ def update_profile(
 @app.post("/api/profile/import-pdf")
 async def import_pdf(
     file: UploadFile = File(...),
-    user: User = Depends(get_current_user),
-    x_gemini_key: str = Header(None)
+    user: User = Depends(get_current_user)
 ):
-    """Upload a PDF resume, extract profile data via Gemini."""
-    if not x_gemini_key:
-        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header. Please add your key in the dashboard.")
+    """Upload a PDF resume, extract profile data via NVIDIA NIM."""
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files accepted")
     try:
@@ -371,7 +367,7 @@ async def import_pdf(
         text = extract_text_from_pdf(pdf_bytes)
         if not text.strip():
             raise HTTPException(status_code=400, detail="Could not extract text from PDF")
-        profile_data = await parse_resume(text, x_gemini_key)
+        profile_data = await parse_resume(text)
         return profile_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Processing Error: {str(e)}")
@@ -384,16 +380,13 @@ class LatexImportRequest(BaseModel):
 @app.post("/api/profile/import-latex")
 async def import_latex(
     req: LatexImportRequest,
-    user: User = Depends(get_current_user),
-    x_gemini_key: str = Header(None)
+    user: User = Depends(get_current_user)
 ):
-    """Parse LaTeX resume code, extract profile data via Gemini."""
-    if not x_gemini_key:
-        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header. Please add your key in the dashboard.")
+    """Parse LaTeX resume code, extract profile data via NVIDIA NIM."""
     if not req.latex.strip():
         raise HTTPException(status_code=400, detail="Empty LaTeX content")
     try:
-        profile_data = await parse_resume(req.latex, x_gemini_key)
+        profile_data = await parse_resume(req.latex)
         return profile_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Processing Error: {str(e)}")
@@ -404,20 +397,15 @@ async def import_latex(
 @app.post("/api/generate")
 async def generate(
     req: GenerateRequest,
-    user: User = Depends(get_current_user),
-    x_gemini_key: str = Header(None)
+    user: User = Depends(get_current_user)
 ):
-    if not x_gemini_key:
-        raise HTTPException(status_code=400, detail="Missing X-Gemini-Key header. Please add your key in the dashboard.")
-
     task_id = str(uuid.uuid4())
     job_status[task_id] = {"status": "queued"}
-    
+
     await generation_queue.put({
         "task_id": task_id,
         "req": req,
         "user_id": user.id,
-        "x_gemini_key": x_gemini_key
     })
     
     return {"task_id": task_id}

@@ -1,9 +1,10 @@
 import json
+import os
 import fitz  # pymupdf
-from google import genai
-from google.genai import types
+from openai import AsyncOpenAI
 
-MODEL_ID = "gemini-flash-latest"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+MODEL_ID = "meta/llama-3.3-70b-instruct"
 
 PARSE_PROMPT = """You are a resume parser. Extract structured profile data from the following resume content.
 
@@ -54,9 +55,10 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     return text
 
 
-async def parse_resume(content: str, api_key: str) -> dict:
-    """Use Gemini to parse resume text/LaTeX into structured profile data."""
-    client = genai.Client(api_key=api_key)
+async def parse_resume(content: str) -> dict:
+    """Use NVIDIA NIM to parse resume text/LaTeX into structured profile data."""
+    api_key = os.environ["NVIDIA_API_KEY"]
+    client = AsyncOpenAI(base_url=NVIDIA_BASE_URL, api_key=api_key)
 
     user_prompt = f"""
 ## RESUME CONTENT:
@@ -64,16 +66,17 @@ async def parse_resume(content: str, api_key: str) -> dict:
 
 Parse this resume and extract the structured profile data. Return ONLY valid JSON.
 """
-    response = await client.aio.models.generate_content(
+    response = await client.chat.completions.create(
         model=MODEL_ID,
-        contents=[PARSE_PROMPT, user_prompt],
-        config=types.GenerateContentConfig(
-            temperature=0.2,
-            response_mime_type="application/json",
-        ),
+        messages=[
+            {"role": "system", "content": PARSE_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.2,
+        max_tokens=2048,
     )
 
-    text = response.text.strip()
+    text = response.choices[0].message.content.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1]
         if text.endswith("```"):

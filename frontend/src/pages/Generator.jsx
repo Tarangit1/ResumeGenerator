@@ -148,7 +148,7 @@ export default function Generator() {
         if (statusData.status === 'queued') {
           setQueueStatus('Waiting in queue (to prevent rate limits)...')
         } else if (statusData.status === 'processing') {
-          setQueueStatus('Gemini is generating your tailored resume...')
+          setQueueStatus('AI is generating your tailored resume...')
         } else if (statusData.status === 'completed') {
           resultData = statusData.result
           break
@@ -240,7 +240,7 @@ export default function Generator() {
         <div className="card">
           <h2 className="card-title">Paste Job Description</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: 20 }}>
-            Paste the full JD. Gemini will extract keywords, inflate your projects, and tailor everything.
+            Paste the full JD. AI will extract keywords, tailor your projects, and optimize everything for ATS.
           </p>
           <JDInput value={jd} onChange={setJd} />
           <div className="wizard-nav">
