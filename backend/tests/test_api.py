@@ -91,3 +91,28 @@ def test_get_and_update_profile():
     assert response.status_code == 200
     assert response.json()["name"] == "Test User"
     assert response.json()["skills"] == ["Python"]
+
+def test_gen_tex_escapes_social_links():
+    login_response = client.post("/api/auth/login", json={"email": "test@example.com", "password": "password123"})
+    token = login_response.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    pdf_req = {
+        "resume": {"summary": "Experienced Developer"},
+        "name": "Test User",
+        "email": "test@example.com",
+        "phone": "1234567890",
+        "linkedin": "https://linkedin.com/in/user}\\write18{id}",
+        "github": "https://github.com/user}\\input{/etc/passwd}",
+        "template_name": "resume.tex.j2",
+        "hide_keywords": []
+    }
+
+    response = client.post("/api/tex", json=pdf_req, headers=headers)
+    assert response.status_code == 200
+    tex_content = response.text
+    # Check that raw closing braces followed by TeX commands are properly escaped
+    assert r"\}\textbackslash\{\}write18\{id\}" in tex_content
+    assert r"\}\textbackslash\{\}input\{/etc/passwd\}" in tex_content
+    assert r"\write18{id}" not in tex_content
+    assert r"\input{/etc/passwd}" not in tex_content

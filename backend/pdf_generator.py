@@ -74,8 +74,8 @@ async def generate_pdf(
     safe_name = _escape_latex(profile_name)
     safe_email = _escape_latex(profile_email)
     safe_phone = _escape_latex(profile_phone)
-    safe_linkedin = profile_linkedin  # URLs: keep raw for \href
-    safe_github = profile_github      # URLs: keep raw for \href
+    safe_linkedin = _escape_latex(profile_linkedin)
+    safe_github = _escape_latex(profile_github)
     safe_hide_keywords = [_escape_latex(k) for k in (hide_keywords or [])]
 
     # Render .tex from Jinja2 template

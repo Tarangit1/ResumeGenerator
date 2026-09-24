@@ -466,8 +466,8 @@ def gen_tex(req: PdfRequest, user: User = Depends(get_current_user)):
     safe_name = _escape_latex(req.name)
     safe_email = _escape_latex(req.email)
     safe_phone = _escape_latex(req.phone)
-    safe_linkedin = req.linkedin  # URLs: keep raw for \href
-    safe_github = req.github      # URLs: keep raw for \href
+    safe_linkedin = _escape_latex(req.linkedin)
+    safe_github = _escape_latex(req.github)
     safe_hide_keywords = [_escape_latex(k) for k in (req.hide_keywords or [])]
 
     tex_content = template.render(
