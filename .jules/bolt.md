@@ -1,0 +1,3 @@
+## 2.22.2025 - Module-Level Pre-compilation and Constant Hoisting in Backend Utilities
+**Learning:** Defining local collections (e.g., stop words sets, replacements list tuples) and uncompiled regular expressions inside frequently called helper functions (such as `_escape_latex` or `_extract_keywords`) causes repeated object allocations and regex compilation overhead on every invocation.
+**Action:** Always hoist immutable lookup structures and pre-compile regular expressions at module level (`re.compile(...)`) for helper functions invoked in loops or hot paths like ATS scoring and PDF escaping.

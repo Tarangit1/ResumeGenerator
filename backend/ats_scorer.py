@@ -2,35 +2,28 @@ import re
 from collections import Counter
 
 
-def _extract_keywords(text: str) -> set:
-    """Extract meaningful keywords from text (lowercase, deduped)."""
-    # Remove common stop words
-    stop_words = {
-        "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
-        "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
-        "being", "have", "has", "had", "do", "does", "did", "will", "would",
-        "could", "should", "may", "might", "must", "shall", "can", "need",
-        "it", "its", "you", "your", "we", "our", "they", "their", "this",
-        "that", "these", "those", "as", "if", "not", "no", "so", "up", "out",
-        "about", "into", "over", "after", "also", "such", "other", "than",
-        "then", "each", "all", "any", "both", "few", "more", "most", "some",
-        "very", "just", "etc", "able", "work", "working", "using", "used",
-        "including", "across", "within", "between", "through", "during",
-        "experience", "required", "preferred", "strong", "excellent",
-        "minimum", "years", "role", "responsibilities", "qualifications",
-        "looking", "join", "team", "company", "position", "opportunity",
-    }
+# Module-level constants and pre-compiled regex objects for performance optimization
+# (Avoids recreating sets and re-compiling regexes on every ATS scoring call)
+STOP_WORDS = {
+    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
+    "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
+    "being", "have", "has", "had", "do", "does", "did", "will", "would",
+    "could", "should", "may", "might", "must", "shall", "can", "need",
+    "it", "its", "you", "your", "we", "our", "they", "their", "this",
+    "that", "these", "those", "as", "if", "not", "no", "so", "up", "out",
+    "about", "into", "over", "after", "also", "such", "other", "than",
+    "then", "each", "all", "any", "both", "few", "more", "most", "some",
+    "very", "just", "etc", "able", "work", "working", "using", "used",
+    "including", "across", "within", "between", "through", "during",
+    "experience", "required", "preferred", "strong", "excellent",
+    "minimum", "years", "role", "responsibilities", "qualifications",
+    "looking", "join", "team", "company", "position", "opportunity",
+}
 
-    # Extract words (2+ chars, alphanumeric + common tech chars)
-    words = re.findall(r'[a-zA-Z][a-zA-Z0-9#+.\-]{1,}', text)
-    keywords = set()
-    for w in words:
-        lower = w.lower().rstrip(".")
-        if lower not in stop_words and len(lower) >= 2:
-            keywords.add(lower)
+WORD_PATTERN = re.compile(r'[a-zA-Z][a-zA-Z0-9#+.\-]{1,}')
 
-    # Also extract multi-word tech terms (e.g., "machine learning", "ci/cd")
-    multi_word_patterns = [
+MULTI_WORD_PATTERNS = [
+    re.compile(p) for p in [
         r'(?i)\b(?:machine\s+learning|deep\s+learning|natural\s+language\s+processing)',
         r'(?i)\b(?:ci/cd|ci\s*/\s*cd)',
         r'(?i)\b(?:cross[- ]functional|object[- ]oriented|event[- ]driven)',
@@ -40,8 +33,22 @@ def _extract_keywords(text: str) -> set:
         r'(?i)\b(?:version\s+control|source\s+control)',
         r'(?i)\b(?:agile|scrum|kanban)',
     ]
-    for pattern in multi_word_patterns:
-        matches = re.findall(pattern, text)
+]
+
+
+def _extract_keywords(text: str) -> set:
+    """Extract meaningful keywords from text (lowercase, deduped)."""
+    # Extract words (2+ chars, alphanumeric + common tech chars) using pre-compiled regex
+    words = WORD_PATTERN.findall(text)
+    keywords = set()
+    for w in words:
+        lower = w.lower().rstrip(".")
+        if lower not in STOP_WORDS and len(lower) >= 2:
+            keywords.add(lower)
+
+    # Also extract multi-word tech terms using pre-compiled patterns
+    for pattern in MULTI_WORD_PATTERNS:
+        matches = pattern.findall(text)
         for m in matches:
             keywords.add(m.lower().strip())
 

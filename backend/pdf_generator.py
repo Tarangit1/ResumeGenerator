@@ -1,7 +1,25 @@
 import os
+import re
 import asyncio
 import tempfile
 from jinja2 import Environment, FileSystemLoader
+
+
+# Pre-compiled regex and constants for performance optimization
+# (Avoids re-importing re, re-allocating tuples, and re-compiling regex on every string conversion)
+LATEX_REPLACEMENTS = (
+    ("\\", r"\textbackslash{}"),
+    ("&", r"\&"),
+    ("%", r"\%"),
+    ("$", r"\$"),
+    ("#", r"\#"),
+    ("_", r"\_"),
+    ("{", r"\{"),
+    ("}", r"\}"),
+    ("~", r"\textasciitilde{}"),
+    ("^", r"\textasciicircum{}"),
+)
+BOLD_PATTERN = re.compile(r'\*\*(.*?)\*\*')
 
 
 # Jinja2 env for LaTeX — custom delimiters to avoid clashing with TeX braces
@@ -20,25 +38,12 @@ def _escape_latex(text: str) -> str:
     """Escape special LaTeX characters in user-provided text."""
     if not isinstance(text, str):
         return text
-    replacements = [
-        ("\\", r"\textbackslash{}"),
-        ("&", r"\&"),
-        ("%", r"\%"),
-        ("$", r"\$"),
-        ("#", r"\#"),
-        ("_", r"\_"),
-        ("{", r"\{"),
-        ("}", r"\}"),
-        ("~", r"\textasciitilde{}"),
-        ("^", r"\textasciicircum{}"),
-    ]
-    for old, new in replacements:
+    for old, new in LATEX_REPLACEMENTS:
         text = text.replace(old, new)
-        
-    import re
-    # Convert Markdown **bold** to LaTeX \textbf{bold}
-    text = re.sub(r'\*\*(.*?)\*\*', r'\\textbf{\1}', text)
-    
+
+    # Convert Markdown **bold** to LaTeX \textbf{bold} using pre-compiled regex
+    text = BOLD_PATTERN.sub(r'\\textbf{\1}', text)
+
     return text
 
 
