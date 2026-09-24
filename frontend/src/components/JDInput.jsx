@@ -7,7 +7,7 @@ export default function JDInput({ value, onChange }) {
         className="form-textarea"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Paste the full job description here. Include requirements, responsibilities, qualifications — everything. The more detail, the better Gemini can tailor your resume."
+        placeholder="Paste the full job description here. Include requirements, responsibilities, qualifications — everything. The more detail, the better the AI can tailor your resume."
         style={{ minHeight: '300px', fontSize: '0.9rem', lineHeight: '1.6' }}
       />
       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 6 }}>

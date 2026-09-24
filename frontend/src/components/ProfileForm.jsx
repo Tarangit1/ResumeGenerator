@@ -14,8 +14,8 @@ export default function ProfileForm({ initial, onSave }) {
   const [latexCode, setLatexCode] = useState('')
   const fileInputRef = useRef(null)
 
-  const applyImport = (data) => {
-    setForm({
+  const applyImport = async (data) => {
+    const parsed = {
       name: data.name || '',
       email: data.email || '',
       phone: data.phone || '',
@@ -25,7 +25,17 @@ export default function ProfileForm({ initial, onSave }) {
       experience: data.experience || [],
       education: data.education || [],
       projects: data.projects || [],
-    })
+    }
+    setForm(parsed)
+    // Auto-save to DB so user doesn't have to hit Save manually
+    try {
+      const token = localStorage.getItem('token')
+      await fetch(`${API}/api/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(parsed),
+      })
+    } catch (_) { /* non-fatal — form is still pre-filled */ }
   }
 
   const handlePdfImport = async (e) => {
@@ -37,13 +47,9 @@ export default function ProfileForm({ initial, onSave }) {
       const formData = new FormData()
       formData.append('file', file)
       const token = localStorage.getItem('token')
-      const geminiKey = localStorage.getItem('geminiApiKey')
-      const headers = { 'Authorization': `Bearer ${token}` }
-      if (geminiKey) headers['X-Gemini-Key'] = geminiKey
-      
       const res = await fetch(`${API}/api/profile/import-pdf`, {
         method: 'POST',
-        headers,
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
       })
       if (!res.ok) {
@@ -51,7 +57,7 @@ export default function ProfileForm({ initial, onSave }) {
         throw new Error(err.detail || 'Import failed')
       }
       const data = await res.json()
-      applyImport(data)
+      await applyImport(data)
     } catch (err) {
       setImportError(err.message)
     } finally {
@@ -66,16 +72,9 @@ export default function ProfileForm({ initial, onSave }) {
     setImportError('')
     try {
       const token = localStorage.getItem('token')
-      const geminiKey = localStorage.getItem('geminiApiKey')
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      }
-      if (geminiKey) headers['X-Gemini-Key'] = geminiKey
-
       const res = await fetch(`${API}/api/profile/import-latex`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ latex: latexCode }),
       })
       if (!res.ok) {
@@ -83,7 +82,7 @@ export default function ProfileForm({ initial, onSave }) {
         throw new Error(err.detail || 'Import failed')
       }
       const data = await res.json()
-      applyImport(data)
+      await applyImport(data)
       setShowLatexInput(false)
       setLatexCode('')
     } catch (err) {
@@ -212,7 +211,7 @@ export default function ProfileForm({ initial, onSave }) {
           <span style={{ fontSize: '1.2rem' }}>📥</span>
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>Import from Existing Resume</div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Upload PDF or paste LaTeX — Gemini extracts your profile</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Upload PDF or paste LaTeX — AI extracts your profile and saves it automatically</div>
           </div>
         </div>
 
@@ -341,7 +340,7 @@ export default function ProfileForm({ initial, onSave }) {
                 <input className="form-input" value={exp.end} onChange={(e) => updateExp(idx, 'end', e.target.value)} placeholder="End (e.g., Present)" />
               </div>
             </div>
-            <label className="form-label" style={{ marginTop: 8 }}>Bullets (honest descriptions, Gemini will inflate)</label>
+            <label className="form-label" style={{ marginTop: 8 }}>Bullets (honest descriptions — AI will enhance them)</label>
             <div className="bullets-list">
               {(exp.bullets || []).map((b, bi) => (
                 <div className="bullet-row" key={bi}>
@@ -363,7 +362,7 @@ export default function ProfileForm({ initial, onSave }) {
 
       {/* Projects */}
       <div className="form-group">
-        <label className="form-label">Projects (honest descriptions — Gemini will make them sound FAANG-level)</label>
+        <label className="form-label">Projects (honest descriptions — AI will make them sound FAANG-level)</label>
         {form.projects.map((proj, idx) => (
           <div className="entry-card" key={idx}>
             <div className="entry-header">
@@ -390,7 +389,7 @@ export default function ProfileForm({ initial, onSave }) {
                 className="form-textarea"
                 value={proj.description}
                 onChange={(e) => updateProj(idx, 'description', e.target.value)}
-                placeholder="Honestly describe what the project does. e.g., 'A chatbot using OpenAI API for customer support' — Gemini will turn this into enterprise gold."
+                placeholder="Honestly describe what the project does. e.g., 'A chatbot using OpenAI API for customer support' — AI will turn this into enterprise gold."
                 rows={3}
               />
             </div>

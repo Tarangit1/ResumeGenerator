@@ -119,12 +119,17 @@ Base.metadata.create_all(bind=engine)
 def _run_migrations():
     from sqlalchemy import inspect, text
     inspector = inspect(engine)
-    if 'profiles' in inspector.get_table_names():
-        columns = [c['name'] for c in inspector.get_columns('profiles')]
-        with engine.begin() as conn:
+    with engine.begin() as conn:
+        if 'profiles' in inspector.get_table_names():
+            columns = [c['name'] for c in inspector.get_columns('profiles')]
             if 'github' not in columns:
                 conn.execute(text("ALTER TABLE profiles ADD COLUMN github VARCHAR(500) DEFAULT ''"))
                 logger.info("Migration: Added 'github' column to profiles table")
+        if 'resume_history' in inspector.get_table_names():
+            columns = [c['name'] for c in inspector.get_columns('resume_history')]
+            if 'jd_embedding' not in columns:
+                conn.execute(text("ALTER TABLE resume_history ADD COLUMN jd_embedding JSON"))
+                logger.info("Migration: Added 'jd_embedding' column to resume_history table")
 
 try:
     _run_migrations()
